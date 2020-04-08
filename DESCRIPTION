@@ -1,7 +1,7 @@
 Package: levi
 Type: Package
 Title: Landscape Expression Visualization Interface
-Version: 1.4.1
+Version: 1.4.2
 Author: Jose Rafael Pilan <rafael.pilan@unesp.br>, Isabelle Mira da Silva <isabelle.silva@unesp.br>, Agnes Alessandra Sekijima Takeda <agnes.takeda@unesp.br>, Jose Luiz Rybarczyk Filho <jose.luiz@unesp.br>
 Maintainer: Jose Luiz Rybarczyk Filho <jose.luiz@unesp.br>
 Description: The tool integrates data from biological networks with transcriptomes, displaying a heatmap with surface curves to evidence the altered regions.
@@ -19,9 +19,3 @@ biocViews: GeneExpression, Sequencing, Network, Software
 VignetteBuilder: knitr
 LazyLoad: yes
 NeedsCompilation: yes
-git_url: https://git.bioconductor.org/packages/levi
-git_branch: master
-git_last_commit: 7a49dd3
-git_last_commit_date: 2020-03-24
-Date/Publication: 2020-03-24
-Packaged: 2020-03-25 03:27:13 UTC; biocbuild
