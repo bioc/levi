@@ -95,7 +95,7 @@ LEVIui(browser=FALSE) #Launch Levi to R environment.
 
 ```
 
-<center><img src="levi.png" width=150%></center>
+<center><img src="Newlevi.png" width=150%></center>
 <center> <b>Figure 2: </b> Graphical User Interface (GUI).</center>
 
 * **1** - **Tabs**

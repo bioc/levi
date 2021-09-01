@@ -50,9 +50,9 @@ expression levels. The default is FALSE}
 TRUE.}
 
 \item{setcolor}{Select the color palette to build the heatmat. There is
-two options the Multicolor has 20 color levels combined. The
-Two colors has two types of color and the options available are: purple\_pink,
-green\_blue, blue\_yellow, pink\_green, orange\_purple, green\_marine.}
+two options the **Multicolor** has 20 color levels combined. The
+**Two colors** has two types of color and the options available are: *purple_pink*,
+*green_blue*, *blue_yellow*, *pink_green*, *orange_purple*, *green_marine*.}
 }
 \value{
 Return a ggplot object and print a image (heatmat).

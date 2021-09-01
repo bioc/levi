@@ -1,5 +1,5 @@
 #' @title levi
-#' @import RColorBrewer shinydashboard httr
+#' @import RColorBrewer shinydashboard httr rmarkdown markdown
 #' @import xml2 Rcpp knitr methods
 #' @importFrom Rcpp evalCpp
 #' @useDynLib levi
@@ -57,9 +57,9 @@
 #' @param contourLevi Logical variable to allow contour lines. The default is
 #' TRUE.
 #' @param setcolor Select the color palette to build the heatmat. There is
-#'two options the Multicolor has 20 color levels combined. The
-#'Two colors has two types of color and the options available are: purple\_pink,
-#'green\_blue, blue\_yellow, pink\_green, orange\_purple, green\_marine.
+#'two options the **Multicolor** has 20 color levels combined. The
+#'**Two colors** has two types of color and the options available are: *purple_pink*,
+#'*green_blue*, *blue_yellow*, *pink_green*, *orange_purple*, *green_marine*.
 #' @details Integrates the biological network and gene expression levels
 #' (or other type of data)
 #' @author Isabelle Mira da Silva (isabelle.silva@unesp.br), José Rafael Pilan (rafael.pilan@unesp.br)
