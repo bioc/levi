@@ -1,7 +1,7 @@
 Package: levi
 Type: Package
 Title: Landscape Expression Visualization Interface
-Version: 1.11.5
+Version: 1.12.0
 Authors@R:
     c(person(given = "Rafael",
                  family = "Pilan",
