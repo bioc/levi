@@ -30,21 +30,17 @@
     if (is.null(blocks)) blocks <- rep("all", length(groups))
     by_block <- split(seq_along(groups), blocks)
 
-    # Every way of placing the test labels inside one block. A block that
-    # holds a single condition (a donor with only controls, say) has nothing
-    # to exchange and contributes one fixed arrangement.
-    choices <- lapply(by_block, function(i) {
+    # Count the distinct arrangements before enumerating anything: a block
+    # that holds a single condition (a donor with only controls, say) has
+    # nothing to exchange and contributes one fixed arrangement. Counting
+    # with choose() keeps an unblocked 58-vs-49 design (about 1e31
+    # arrangements) from being expanded with combn(), which used to overflow
+    # the integer range and abort before the Monte Carlo branch was reached.
+    n_possible <- prod(vapply(by_block, function(i) {
         lev <- unique(groups[i])
-        if (length(lev) == 1L) return(list(groups[i]))
-        test <- lev[2]
-        k <- sum(groups[i] == test)
-        lapply(utils::combn(seq_along(i), k, simplify = FALSE), function(pos) {
-            x <- rep(lev[1], length(i))
-            x[pos] <- test
-            x
-        })
-    })
-    n_possible <- prod(vapply(choices, length, integer(1)))
+        if (length(lev) == 1L) return(1)
+        choose(length(i), sum(groups[i] == lev[2]))
+    }, numeric(1)))
     exact <- method == "exact" ||
         (method == "auto" && n_possible <= max_exact)
     if (exact && n_possible > max_exact)
@@ -57,8 +53,8 @@
     floor_p <- 1 / (n_draws + 1)
     if (floor_p > alpha) {
         cause <- if (exact) {
-            sprintf("Only %d distinct label arrangements are possible",
-                    n_possible)
+            sprintf("Only %s distinct label arrangements are possible",
+                    format(n_possible, big.mark = ","))
         } else {
             sprintf("With n_perm = %d Monte Carlo draws", n_draws)
         }
@@ -78,6 +74,18 @@
         return(list(labels = labels, exact = FALSE, possible = n_possible))
     }
 
+    # Every way of placing the test labels inside one block.
+    choices <- lapply(by_block, function(i) {
+        lev <- unique(groups[i])
+        if (length(lev) == 1L) return(list(groups[i]))
+        test <- lev[2]
+        k <- sum(groups[i] == test)
+        lapply(utils::combn(seq_along(i), k, simplify = FALSE), function(pos) {
+            x <- rep(lev[1], length(i))
+            x[pos] <- test
+            x
+        })
+    })
     grid <- expand.grid(lapply(choices, seq_along), KEEP.OUT.ATTRS = FALSE)
     labels <- lapply(seq_len(nrow(grid)), function(r) {
         x <- groups

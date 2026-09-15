@@ -7,6 +7,11 @@ levi 2.0.0; internal version numbers quoted in older notes refer to this release
 
 Inference layer (technical review, 2026-09-06)
 ----------------------------------------------
+    o Sample-label permutations count the possible arrangements with
+      choose() before deciding between the exact and Monte Carlo schemes.
+      Enumerating them first aborted leviReplicateInference() and the graph
+      tests on unblocked designs with more than about 30 samples
+      ("vector size cannot be NA"), e.g. 58 tumours vs 49 normals.
     o New leviSave3D() writes the 3D surface to html, png, jpeg, webp, svg,
       pdf or tiff from a chosen camera position, so the same viewpoint can
       be reproduced across runs. Static formats go through plotly and the

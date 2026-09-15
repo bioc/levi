@@ -290,3 +290,22 @@ test_that("nearest_node_grid: rotula cada celula com o no mais proximo", {
     expect_equal(g[3, 18], 3L)
     expect_equal(g[18, 18], 4L)
 })
+
+test_that(".labelPermutations counts large unblocked designs without enumerating", {
+    # 58 vs 49 unblocked: choose(107, 49) ~ 1e31 arrangements. Enumerating
+    # them with combn() overflowed the integer range and aborted; the count
+    # must come from choose() and the scheme must fall back to Monte Carlo.
+    groups <- rep(c("Tumor", "Normal"), c(58, 49))
+    set.seed(1)
+    perms <- levi:::.labelPermutations(groups, n_perm = 9L)
+    expect_false(perms$exact)
+    expect_equal(perms$possible, choose(107, 49))
+    expect_length(perms$labels, 9L)
+    expect_true(all(vapply(perms$labels, function(x)
+        sum(x == "Tumor") == 58, logical(1))))
+    # The exact scheme is unchanged for a small design.
+    ex <- levi:::.labelPermutations(rep(c("a", "b"), each = 3), n_perm = 9L)
+    expect_true(ex$exact)
+    expect_equal(ex$possible, 20)
+    expect_length(ex$labels, 19L)
+})
