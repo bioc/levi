@@ -91,11 +91,12 @@ leviSingleCellTFCEInference <- function(counts, donor, cell_type, condition,
     if (!length(types))
         stop("No requested cell type has pseudobulk for every donor.",
              call. = FALSE)
-    expression <- .pseudobulkExpression(pb, design$keys, types, paired,
-                                        normalize)
-
     ni <- .networkIndex(networkCoordinatesInput, networkInteractionsInput,
                         fileTypeInput)
+    expression <- .pseudobulkExpression(pb, design$keys, types, paired,
+                                        normalize,
+                                        keep_genes = ni$nodes)
+
     statistic <- function(expr, g)
         .moderatedT(expr, g, levels, design$blocks, trend = TRUE)
     observed <- lapply(expression, function(expr) {
@@ -266,11 +267,12 @@ leviSingleCellRegionalInference <- function(counts, donor, cell_type,
     if (!length(types))
         stop("No cell type contains every donor-condition pseudobulk.",
              call. = FALSE)
-    expression <- .pseudobulkExpression(pb, design$keys, types, paired = TRUE,
-                                        normalize)
-
     ni <- .networkIndex(networkCoordinatesInput, networkInteractionsInput,
                         fileTypeInput)
+    expression <- .pseudobulkExpression(pb, design$keys, types, paired = TRUE,
+                                        normalize,
+                                        keep_genes = ni$nodes)
+
     statistic <- function(expr, g)
         .moderatedT(expr, g, levels, design$blocks, trend = TRUE)
     perms <- .labelPermutations(design$groups, design$blocks, n_perm,
@@ -413,8 +415,11 @@ leviSingleCellInteractionTFCE <- function(counts, donor, cell_type, condition,
     if (!reference_cell_type %in% types)
         stop("Reference cell type is unavailable.", call. = FALSE)
     others <- setdiff(types, reference_cell_type)
+    ni <- .networkIndex(networkCoordinatesInput, networkInteractionsInput,
+                        fileTypeInput)
     expression <- .pseudobulkExpression(pb, design$keys, types, paired = TRUE,
-                                        normalize)
+                                        normalize,
+                                        keep_genes = ni$nodes)
 
     # All cell types stacked as columns of one matrix, so that the
     # condition-by-type interaction can be fitted in a single linear model.
@@ -426,8 +431,6 @@ leviSingleCellInteractionTFCE <- function(counts, donor, cell_type, condition,
                       levels = c(reference_cell_type, others)))
     interaction_columns <- paste0("type", others, ":condition", levels[2])
 
-    ni <- .networkIndex(networkCoordinatesInput, networkInteractionsInput,
-                        fileTypeInput)
     statistic <- function(g) {
         frame$condition <- factor(rep(g, length(types)), levels = levels)
         design_matrix <- stats::model.matrix(~ donor + type * condition,

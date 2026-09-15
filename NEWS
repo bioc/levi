@@ -7,6 +7,13 @@ levi 2.0.0; internal version numbers quoted in older notes refer to this release
 
 Inference layer (technical review, 2026-09-06)
 ----------------------------------------------
+    o Single-cell pseudobulk tests drop genes with fewer than 10 counts in
+      two pseudobulks before TMM normalisation and the limma-trend fit;
+      network genes are always kept. Fitting the tens of thousands of
+      all-zero droplet rows left more than half of the residual variances
+      at exactly zero, which made the eBayes prior and variance trend
+      unreliable for the genes under test and raised a warning on every
+      permutation (Kang 2018 PBMC data, 35,635 genes).
     o Regional figures label only the regions that pass sig_level, in
       script mode, in the replicate and single-cell tests and in the Shiny
       interface. Every region used to carry a "p = 1.000" box. Without a

@@ -140,3 +140,37 @@ test_that("bulk RNA-seq graph inference returns regional P-values", {
         test = "T", control = "C", threshold = 1, n_perm = 3, seed = 1)
     expect_true(all(out$regions$summary$PSpatial >= .25))
 })
+
+test_that("pseudobulk expression drops unexpressed genes but keeps network nodes", {
+    skip_if_not_installed("limma")
+    genes <- c("HUB", paste0("N", 1:8)); donor <- rep(paste0("d", 1:4), each = 4)
+    condition <- rep(rep(c("ctrl", "stim"), each = 2), 4)
+    type <- rep("A", 16)
+    set.seed(3)
+    counts <- matrix(rpois(length(genes) * length(donor), 20), length(genes),
+        dimnames = list(genes, NULL))
+    counts["N8", ] <- 0                           # a network node never detected
+    zeros <- matrix(0L, 2000, ncol(counts),        # a droplet-style zero block
+        dimnames = list(paste0("Z", 1:2000), NULL))
+    counts <- rbind(counts, zeros)
+    net <- system.file("extdata", "hub_network.dat", package = "levi")
+    # Fitting the 2000 all-zero rows made limma warn "eBayes unreliable" on
+    # every permutation; they are filtered out now, so no such warning.
+    warns <- character()
+    out <- withCallingHandlers(
+        leviSingleCellTFCEInference(counts, donor, type, condition, net,
+            min_cells = 1, permutation_method = "exact", seed = 1),
+        warning = function(w) {
+            warns <<- c(warns, conditionMessage(w)); invokeRestart("muffleWarning")
+        })
+    expect_false(any(grepl("eBayes unreliable", warns)))
+    expect_true(any(grepl("smallest attainable p-value", warns)))
+    # Every network node, including the undetected one, keeps a statistic.
+    expect_setequal(out$results$A$Gene, genes)
+    pb <- leviPseudobulk(counts, donor, type, condition, min_cells = 1)
+    keys <- paste(pb$donor, pb$condition, sep = "::")
+    expr <- levi:::.pseudobulkExpression(pb, keys, "A", paired = TRUE,
+        normalize = "none", keep_genes = genes)$A
+    expect_true(all(genes %in% rownames(expr)))
+    expect_false(any(grepl("^Z", rownames(expr))))
+})

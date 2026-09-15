@@ -262,13 +262,26 @@
 }
 
 # One logCPM matrix per cell type, columns in the order of `keys`.
+#
+# Genes that are not expressed are dropped before normalisation and the
+# limma fit: a droplet matrix carries tens of thousands of all-zero rows,
+# and fitting them gives more than half of the residual variances exactly
+# zero, which breaks the eBayes prior and the variance trend ("eBayes
+# unreliable") for the genes that matter. A gene is kept when it has at
+# least `min_count` counts in `min_samples` pseudobulks, or when it belongs
+# to the network (`keep_genes`), so every node keeps a statistic.
 .pseudobulkExpression <- function(pb, keys, types, paired,
-                                  normalize = "TMM") {
+                                  normalize = "TMM", keep_genes = NULL,
+                                  min_count = 10L, min_samples = 2L) {
     have <- if (paired) paste(pb$donor, pb$condition, sep = "::") else pb$donor
     out <- lapply(types, function(tp) {
         at <- which(pb$cell_type == tp)
         cols <- at[match(keys, have[at])]
-        .logCPM(pb$counts[, cols, drop = FALSE], normalize)
+        counts <- pb$counts[, cols, drop = FALSE]
+        expressed <- rowSums(counts >= min_count) >= min_samples
+        if (!is.null(keep_genes))
+            expressed <- expressed | rownames(counts) %in% keep_genes
+        .logCPM(counts[expressed, , drop = FALSE], normalize)
     })
     names(out) <- types
     out
