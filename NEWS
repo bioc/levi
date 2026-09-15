@@ -7,6 +7,10 @@ levi 2.0.0; internal version numbers quoted in older notes refer to this release
 
 Inference layer (technical review, 2026-09-06)
 ----------------------------------------------
+    o Regional figures label only the regions that pass sig_level, in
+      script mode, in the replicate and single-cell tests and in the Shiny
+      interface. Every region used to carry a "p = 1.000" box. Without a
+      permutation test the descriptive regions keep their name labels.
     o Sample-label permutations count the possible arrangements with
       choose() before deciding between the exact and Monte Carlo schemes.
       Enumerating them first aborted leviReplicateInference() and the graph

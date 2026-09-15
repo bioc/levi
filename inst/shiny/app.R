@@ -689,6 +689,7 @@ server <- function(input, output, session) {
                 ggplot2::geom_segment(data = boundary,
                     aes(x = x, y = y, xend = xend, yend = yend),
                     colour = "white", linewidth = 0.8, inherit.aes = FALSE)
+            summ <- summ[summ$Region %in% selected, , drop = FALSE]
             if (nrow(summ)) {
                 summ$Label <- sprintf("%s\np = %.3f", summ$Region, summ$PSpatial)
                 base_plot <- base_plot + ggplot2::geom_label(data = summ,

@@ -404,10 +404,20 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
         # -- Peak labels on the plot --
         if (inference_unit == "region" && nrow(regions$summary)) {
             area_labels <- regions$summary
-            area_labels$Label <- if ("PSpatial" %in% names(area_labels))
-                sprintf("%s\np = %.3f", area_labels$Region, area_labels$PSpatial) else
-                area_labels$Region
-            landgraphChart <- landgraphChart + ggplot2::geom_label(
+            # With a permutation test, label only the regions that pass
+            # sig_level (the ones that are outlined); every region carrying
+            # "p = 1.000" made the figure unreadable. Without a test the
+            # regions are descriptive and keep their names.
+            if ("PSpatial" %in% names(area_labels)) {
+                area_labels <- area_labels[area_labels$PSpatial <= sig_level &
+                    (perm_side == "both" | area_labels$Direction == perm_side), ,
+                    drop = FALSE]
+                area_labels$Label <- sprintf("%s\np = %.3f", area_labels$Region,
+                                             area_labels$PSpatial)
+            } else {
+                area_labels$Label <- area_labels$Region
+            }
+            if (nrow(area_labels)) landgraphChart <- landgraphChart + ggplot2::geom_label(
                 data = area_labels,
                 ggplot2::aes(x = PeakRow, y = n + 1L - PeakCol, label = Label),
                 size = 3, inherit.aes = FALSE)

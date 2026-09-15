@@ -221,15 +221,16 @@ leviReplicateInference <- function(expression, groups, gene_ids = rownames(expre
         is.data.frame(layer$data) && "Label" %in% names(layer$data), logical(1))
     result$plot$layers <- result$plot$layers[!is_label]
     n <- result$metadata$grid$resolution
-    labels <- summary
+    selected <- summary$Region[summary$PSpatial <= sig_level]
+    labels <- summary[summary$Region %in% selected, , drop = FALSE]
     labels$Label <- sprintf("%s\np = %.3f", labels$Region, labels$PSpatial)
-    selected <- labels$Region[labels$PSpatial <= sig_level]
     boundaries <- .regionBoundaries(result$regions, n, selected)
     if (nrow(boundaries)) result$plot <- result$plot +
         ggplot2::geom_segment(data = boundaries,
             ggplot2::aes(x = x, y = y, xend = xend, yend = yend),
             colour = "white", linewidth = .9, inherit.aes = FALSE)
-    result$plot <- result$plot + ggplot2::geom_label(data = labels,
+    if (nrow(labels)) result$plot <- result$plot + ggplot2::geom_label(
+        data = labels,
         ggplot2::aes(x = PeakRow, y = n + 1L - PeakCol, label = Label),
         size = 3, inherit.aes = FALSE)
     result

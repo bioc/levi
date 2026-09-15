@@ -92,9 +92,21 @@ test_that("public regional results label areas and preserve supplied logFC", {
     expect_true(nrow(x$regions$summary) > 0)
     expect_true(all(x$regions$summary$PSpatial == 1))
     expect_false(any(x$regions$summary$Significant))
+    # No region passes sig_level, so none is labelled: a "p = 1.000" box on
+    # every region is what the figure used to show.
     labels <- Filter(function(layer) is.data.frame(layer$data) &&
                       "Label" %in% names(layer$data), x$plot$layers)
+    expect_length(labels, 0)
+    expect_equal(x$metadata$inference_unit, "region")
+
+    # Without a permutation test the regions are descriptive and keep names.
+    y <- levi(expressionInput = data.frame(ID = c("HUB", paste0("N", 1:8)), logFC = .4),
+        networkCoordinatesInput = system.file("extdata", "hub_network.dat", package = "levi"),
+        fileTypeInput = "dat", geneSymbolInput = "ID", readExpColumn = readExpColumn("logFC-logFC"),
+        signal_mode = "logfc", inference_unit = "region", n_perm = 0,
+        resolutionValueInput = 1, region_threshold = .02)
+    labels <- Filter(function(layer) is.data.frame(layer$data) &&
+                      "Label" %in% names(layer$data), y$plot$layers)
     expect_length(labels, 1)
     expect_true(all(grepl("^over_", labels[[1]]$data$Label)))
-    expect_equal(x$metadata$inference_unit, "region")
 })
