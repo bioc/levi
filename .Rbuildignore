@@ -1,0 +1,10 @@
+^Readme\.md$
+^LICENSE\.txt$
+^CONTRIBUTING\.md$
+^\.Rbuildignore$
+^.*\.Rproj$
+^\.Rproj\.user$
+^.*\.Rcheck$
+^.*\.BiocCheck$
+^.*\.tar\.gz$
+^[^/]*\.png$
