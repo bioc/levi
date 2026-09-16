@@ -395,3 +395,26 @@ test_that("edge_weighting is carried into the sample-label landscape null", {
     expect_identical(r$metadata$edge_weighting, "degree")
     expect_length(r$metadata$support_weights, 9 + 8)
 })
+
+test_that("the grid margin adapts to the kernel so the silhouette is never clipped", {
+    net <- system.file("extdata", "medusa.dat", package = "levi")
+    expr <- system.file("extdata", "expression.dat", package = "levi")
+    border_occupied <- function(smooth, contrast, zoom, resolution = 30) {
+        r <- suppressMessages(levi(expressionInput = expr, networkCoordinatesInput = net,
+            fileTypeInput = "dat", geneSymbolInput = "ID",
+            readExpColumn = readExpColumn("TumorCurrentSmoker-NormalNeverSmoker"),
+            smoothValueInput = smooth, contrastValueInput = contrast,
+            zoomValueInput = zoom, resolutionValueInput = resolution, .draw = FALSE))
+        z <- r$landscape; n <- max(z$Var1)
+        border <- z$Var1 %in% c(1, n) | z$Var2 %in% c(1, n)
+        c(occupied = sum(!is.na(z$z[border])), inside = sum(!is.na(z$z)))
+    }
+    for (smooth in c(10, 50, 100)) for (contrast in c(0, 50, 100)) for (zoom in c(0, 50, 100)) {
+        b <- border_occupied(smooth, contrast, zoom)
+        expect_equal(unname(b["occupied"]), 0,
+            info = sprintf("smooth %d contrast %d zoom %d", smooth, contrast, zoom))
+        expect_gt(unname(b["inside"]), 0)
+    }
+    # zoom 0 frames wider than zoom 100: fewer occupied cells on the same grid
+    expect_lt(border_occupied(50, 50, 0)["inside"], border_occupied(50, 50, 100)["inside"])
+})

@@ -19,6 +19,16 @@ Landscape core (degree weighting, 2026-09-16)
       built with the same weighting as the observed landscape.
       inst/scripts/12-degree-weighting.R compares calibration, power and
       layout sensitivity of the three options.
+    o The grid always leaves room for the smoothed silhouette. The margin
+      around the network used to be the zoom alone (10% of the network
+      extent by default), while the Gaussian kernel at the default
+      smoothing carries occupancy about 20% beyond the outermost node, so
+      the landscape was clipped on every side where a node sat near the
+      border and regions touching the frame lost part of their mass. The
+      silhouette is now measured once on a generous grid and the frame is
+      set to fit it; zoomValueInput adds up to 20% on top (0 = widest,
+      100 = frame that just fits). Observed and null landscapes share the
+      grid, so p-values are unchanged where nothing was clipped.
     o The landscapes drawn by leviReplicateInference() and
       leviSingleCellRegionalInference() are titled "logFC" instead of
       ".logFC", the name of an internal column.

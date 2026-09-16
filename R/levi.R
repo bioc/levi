@@ -31,8 +31,11 @@
 #' grid cell is considered background and returned as \code{NA}: higher values
 #' give a tighter silhouette. The variable range is 0 to 100. The default
 #' value is 50.
-#' @param zoomValueInput  Numeric value for image zoom. The variable range is 0
-#' to 100. The default value is 50.
+#' @param zoomValueInput  Numeric value for image zoom, from 0 (widest frame)
+#' to 100 (tightest). The grid always leaves enough margin around the network
+#' for the smoothed silhouette to fit, whatever the smoothing and contrast;
+#' the zoom adds up to 20\% of the network extent on top of that margin.
+#' The default value is 50.
 #' @param resolutionValueInput Numeric value for image resolution. The variable
 #' range is 0 to 100. The default value is 50.
 #' @param smoothValueInput Numeric value for image smoothness. Sets the width

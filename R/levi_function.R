@@ -50,13 +50,6 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
     if (resolutionValue < 1) {resolutionValue <- 1}
     resolutionValue<-as.integer((resolutionValue/100)*210+30)
 
-    #zoom
-    {zoomValue <- zoomValueInput}
-    if (zoomValue < 0) {zoomValue <- 0}
-    if (zoomValue > 100) {zoomValue <- 100}
-    zoomValue<-(zoomValue/100)
-    zoomValue<-(0.2*zoomValue)-0.2
-
     #smothing -> sigma of the Gaussian kernel, in grid cells.
     # Proportional to resolutionValue so that the apparent smoothing does not
     # change when the user alters the resolution.
@@ -66,10 +59,21 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
     sigmaCells <- (0.005 + 0.08 * (smoothValue/100)) * resolutionValue
     if (sigmaCells < 0.35) {sigmaCells <- 0.35}
 
-
-    a<-sqrt(zoomValue*zoomValue)
-    b<-1+a-zoomValue
-    increase<-b/(resolutionValue-1)
+    #zoom -> margin of the grid around the network, in coordinate units
+    # (the network spans [0, 1] on its longer axis).
+    # The silhouette reaches beyond the outermost node as far as the kernel
+    # carries occupancy above occFrac, about sigma * sqrt(-2 log occFrac)
+    # cells, plus one cell for the bilinear deposit. The grid always leaves
+    # at least that much room, so the landscape is never clipped; the zoom
+    # adds up to 20% of the network extent on top of it (zoom 0 = widest
+    # frame, zoom 100 = frame that just fits the silhouette). Before 2.0.0
+    # the margin was the zoom alone and the default cut the silhouette
+    # whenever a node sat near the border.
+    {zoomValue <- zoomValueInput}
+    if (zoomValue < 0) {zoomValue <- 0}
+    if (zoomValue > 100) {zoomValue <- 100}
+    zoomFraction <- zoomValue/100
+    # The margin itself is computed once the support points are known, below.
 
     nameBase <- expressionInput
     networkNodes <- networkCoordinatesInput
@@ -160,6 +164,51 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
 
     coord[,c(1)] <- (coord[,c(1)]/coordRange)+(0.5-centroX)
     coord[,c(2)] <- (coord[,c(2)]/coordRange)+(0.5-centroY)
+
+    # Grid margin. The silhouette keeps the cells whose occupancy exceeds
+    # occFrac times that of an isolated point; W points stacked near the
+    # border push it out to about sigma * sqrt(2 log(W / occFrac)) cells,
+    # plus one cell for the bilinear deposit. Solving
+    # m >= reachCells * (1 + 2m) / (resolutionValue - 1) for the margin m.
+    # W is the largest kernel-weighted stack of support points around any
+    # point (the occupancy at that point relative to an isolated one). For
+    # very large networks the total weight is used as an upper bound instead
+    # of the n x n distance matrix.
+    sigmaCoord <- sigmaCells * 1.4 / (resolutionValue - 1)
+    stackWeight <- if (nrow(coord) <= 3000L) {
+        d2 <- as.matrix(stats::dist(coord))^2
+        max(colSums(support_weights * exp(-d2 / (2 * sigmaCoord^2))))
+    } else sum(support_weights)
+    stackWeight <- max(stackWeight, 1)
+    reachCells <- sigmaCells * sqrt(2 * log(stackWeight / occFrac)) + 1
+    denominator <- resolutionValue - 1 - 2 * reachCells
+    reachMargin <- if (denominator > 0) reachCells / denominator else 1
+    reachMargin <- min(reachMargin, 1)
+    gridFor <- function(margin) {
+        zoomValue <- -margin
+        list(zoom = zoomValue, increase = (1 + 2 * margin) / (resolutionValue - 1))
+    }
+    # That bound is generous, so the silhouette is measured once on the
+    # generous grid (occupancy depends on coordinates and weights only, not
+    # on the signal) and the frame is tightened to what it actually needs,
+    # plus two cells of safety. zoom 100 then frames the silhouette exactly
+    # and zoom 0 adds 20% of the network extent around it.
+    probeGrid <- gridFor(reachMargin)
+    dummy <- matrix(0.5, nrow(coord), 1L)
+    probe <- landscape_gauss(coord = coord, SignalOut = dummy, signalExp = dummy,
+        signalCtrl = dummy, resolutionValue = resolutionValue,
+        zoomValue = probeGrid$zoom, increase = probeGrid$increase,
+        sigma = sigmaCells, occFrac = occFrac, weights = support_weights)$m1
+    inside <- which(!is.na(probe), arr.ind = TRUE)
+    if (nrow(inside)) {
+        lo <- probeGrid$zoom + (apply(inside, 2, min) - 1) * probeGrid$increase
+        hi <- probeGrid$zoom + (apply(inside, 2, max) - 1) * probeGrid$increase
+        needed <- max(0, -lo, hi - 1) + 2 * probeGrid$increase
+        reachMargin <- min(needed, reachMargin)
+    }
+    finalGrid <- gridFor(reachMargin + 0.2 * (1 - zoomFraction))
+    zoomValue <- finalGrid$zoom
+    increase <- finalGrid$increase
 
 
     for (k in seq(2,length(readExpColumn))) {
