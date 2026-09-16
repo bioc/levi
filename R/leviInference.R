@@ -167,8 +167,8 @@ leviReplicateInference <- function(expression, groups, gene_ids = rownames(expre
     parsed <- .parseNetwork(dots$networkCoordinatesInput, network_edges,
                             dots$fileTypeInput)
     run <- function(lfc) do.call(levi, c(list(
-        expressionInput = data.frame(.Gene = gene_ids, .logFC = lfc),
-        geneSymbolInput = ".Gene", readExpColumn = readExpColumn(".logFC-.logFC"),
+        expressionInput = data.frame(.Gene = gene_ids, logFC = lfc),
+        geneSymbolInput = ".Gene", readExpColumn = readExpColumn("logFC-logFC"),
         signal_mode = "logfc", n_perm = 0L, inference_unit = "region",
         sig_level = sig_level, plot3d = FALSE, .parsed_network = parsed,
         .draw = FALSE), dots))

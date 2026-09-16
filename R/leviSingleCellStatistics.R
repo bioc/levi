@@ -305,9 +305,9 @@ leviSingleCellRegionalInference <- function(counts, donor, cell_type,
     run_landscape <- function(expr) {
         lfc <- mean_lfc(expr, design$groups)
         do.call(levi, c(list(
-            expressionInput = data.frame(.Gene = rownames(expr), .logFC = lfc),
+            expressionInput = data.frame(.Gene = rownames(expr), logFC = lfc),
             geneSymbolInput = ".Gene",
-            readExpColumn = readExpColumn(".logFC-.logFC"),
+            readExpColumn = readExpColumn("logFC-logFC"),
             signal_mode = "logfc", n_perm = 0L, inference_unit = "region",
             plot3d = FALSE,
             networkCoordinatesInput = networkCoordinatesInput,
