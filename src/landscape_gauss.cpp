@@ -59,7 +59,7 @@ static void gaussBlur(std::vector<double>& g, std::vector<double>& tmp,
 // Bilinear deposit: spreads the value over the 4 neighbouring cells, so the
 // result does not jump when a point falls between grid cells.
 static inline void splat(std::vector<double>& num, std::vector<double>* den,
-                         int res, double fi, double fj, double s)
+                         int res, double fi, double fj, double s, double wt)
 {
     const int i0 = (int)std::floor(fi), j0 = (int)std::floor(fj);
     const double di = fi - i0, dj = fj - j0;
@@ -67,7 +67,7 @@ static inline void splat(std::vector<double>& num, std::vector<double>* den,
         for (int b = 0; b <= 1; ++b) {
             const int i = i0 + a, j = j0 + b;
             if (i < 0 || i >= res || j < 0 || j >= res) continue;
-            const double w = (a ? di : 1.0 - di) * (b ? dj : 1.0 - dj);
+            const double w = (a ? di : 1.0 - di) * (b ? dj : 1.0 - dj) * wt;
             if (w <= 0.0) continue;
             const std::size_t p = (std::size_t)i * res + j;
             num[p] += w * s;
@@ -89,6 +89,9 @@ static inline void splat(std::vector<double>& num, std::vector<double>* den,
 //' @param sigma kernel width, in grid cells.
 //' @param occFrac fraction of the occupancy produced by an isolated point
 //'   below which the cell is considered background and gets NA.
+//' @param weights optional n-vector of non-negative support weights, one per
+//'   point. A point of weight w counts as w copies of itself in both the
+//'   numerator and the occupancy; weight 0 removes it. Empty means all ones.
 //' @return List with m1 (combined signal), m2 (test), m3 (control) and occ
 //'   (relative network occupancy), all of them resolutionValue x
 //'   resolutionValue matrices.
@@ -102,7 +105,8 @@ List landscape_gauss(NumericMatrix coord,
                      double zoomValue,
                      double increase,
                      double sigma,
-                     double occFrac)
+                     double occFrac,
+                     NumericVector weights = NumericVector(0))
 {
     const int res = resolutionValue;
     if (res < 1) stop("resolutionValue must be >= 1");
@@ -111,6 +115,9 @@ List landscape_gauss(NumericMatrix coord,
     if (SignalOut.nrow() != n || signalExp.nrow() != n || signalCtrl.nrow() != n)
         stop("coord and the signal matrices must have the same number of rows");
     if (!(increase > 0.0)) stop("increase must be > 0");
+    const bool weighted = weights.size() > 0;
+    if (weighted && weights.size() != n)
+        stop("weights must have one value per point");
 
     const std::size_t N = (std::size_t)res * res;
 
@@ -137,9 +144,11 @@ List landscape_gauss(NumericMatrix coord,
         const double fi = (coord(m, 0) - zoomValue) / increase;
         const double fj = (coord(m, 1) - zoomValue) / increase;
         if (!R_finite(fi) || !R_finite(fj)) continue;
-        splat(numOut,  &den, res, fi, fj, SignalOut(m, 0));
-        splat(numExp,  NULL, res, fi, fj, signalExp(m, 0));
-        splat(numCtrl, NULL, res, fi, fj, signalCtrl(m, 0));
+        const double wt = weighted ? weights[m] : 1.0;
+        if (!(wt > 0.0)) continue;
+        splat(numOut,  &den, res, fi, fj, SignalOut(m, 0), wt);
+        splat(numExp,  NULL, res, fi, fj, signalExp(m, 0), wt);
+        splat(numCtrl, NULL, res, fi, fj, signalCtrl(m, 0), wt);
     }
 
     // 2. separable blur -- O(res^2 * r)

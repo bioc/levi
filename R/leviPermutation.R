@@ -15,7 +15,8 @@
                                 increase, sigma, occFrac, n_perm,
                                 progress = NULL, node_values = NULL, edge_index = NULL,
                                 single_col = FALSE, signal_mode = "ratio",
-                                logfc_k = 1, regions = NULL, perm_strata = NULL) {
+                                logfc_k = 1, regions = NULL, perm_strata = NULL,
+                                weights = numeric(0)) {
     numberCoord <- nrow(coord)
 
     # Only two counts per cell are ever needed, so they are accumulated as the
@@ -63,7 +64,8 @@
             zoomValue       = zoomValue,
             increase        = increase,
             sigma           = sigma,
-            occFrac         = occFrac)
+            occFrac         = occFrac,
+            weights         = weights)
 
         if (regional) {
             # Redetect components in every randomisation: the observed areas

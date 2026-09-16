@@ -5,6 +5,28 @@ First Bioconductor release of the rewritten package. The changes below were
 developed as internal versions 3.10.0 and 3.11.x and are released together as
 levi 2.0.0; internal version numbers quoted in older notes refer to this release.
 
+Landscape core (degree weighting, 2026-09-16)
+----------------------------------------------
+    o New argument edge_weighting in levi(), passed through by the
+      replicate and single-cell landscape tests. "midpoint" (default)
+      keeps the historical deposit, one support point of weight one per
+      edge midpoint, which weights the landscape implicitly by degree.
+      "degree" weights the midpoint of edge (i, j) by (1/d_i + 1/d_j)/2,
+      so the midpoints around any node add up to one; "none" smooths the
+      node values alone. landscape_gauss() gains a per-point weights
+      vector. The choice is recorded in metadata$edge_weighting and the
+      weights in metadata$support_weights, so the sample-label null is
+      built with the same weighting as the observed landscape.
+      inst/scripts/12-degree-weighting.R compares calibration, power and
+      layout sensitivity of the three options.
+    o The landscapes drawn by leviReplicateInference() and
+      leviSingleCellRegionalInference() are titled "logFC" instead of
+      ".logFC", the name of an internal column.
+    o Vignettes: levi.Rmd recommends leviReplicateInference() and
+      leviGraphTFCEInference() next to the node-label test, with a
+      worked example; the reporting checklist in levi_inference.Rmd gains
+      the same item.
+
 Inference layer (technical review, 2026-09-06)
 ----------------------------------------------
     o Single-cell pseudobulk tests drop genes with fewer than 10 counts in

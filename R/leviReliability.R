@@ -21,6 +21,27 @@
     list(signal = signal, test = signal, control = signal)
 }
 
+# Support weights for the landscape: one per node followed by one per edge
+# midpoint. "midpoint" is the historical behaviour (every point weighs 1, so
+# a hub of degree d surrounds itself with d extra points). "degree" gives the
+# midpoint of edge (i, j) the weight (1/d_i + 1/d_j) / 2, so the midpoints
+# incident to any node add up to one whatever its degree. "none" removes the
+# midpoints from the deposit; the coordinates stay so that indices are
+# unchanged, they simply carry weight zero.
+.supportWeights <- function(n_nodes, edge_index,
+                            edge_weighting = c("midpoint", "degree", "none")) {
+    edge_weighting <- match.arg(edge_weighting)
+    n_edges <- nrow(edge_index)
+    w_edges <- switch(edge_weighting,
+        midpoint = rep(1, n_edges),
+        none     = rep(0, n_edges),
+        degree   = {
+            deg <- tabulate(c(edge_index[, 1], edge_index[, 2]), nbins = n_nodes)
+            (1 / deg[edge_index[, 1]] + 1 / deg[edge_index[, 2]]) / 2
+        })
+    c(rep(1, n_nodes), w_edges)
+}
+
 .adjustLandscapePvalues <- function(pvalues, method) {
     # Both directional families are adjusted together, over occupied cells.
     values <- c(pvalues$over, pvalues$under)

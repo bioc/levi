@@ -29,6 +29,7 @@ levi(
   region_min_cells = 3L,
   inference_unit = c("region", "cell"),
   perm_strata = NULL,
+  edge_weighting = c("midpoint", "degree", "none"),
   .parsed_network = NULL,
   .draw = TRUE
 )
@@ -192,6 +193,17 @@ an unnamed vector must follow network-node order. Signals are shuffled only
 among measured nodes in the same stratum. Useful for bins of mean expression,
 detection rate or network degree. Default `NULL` permutes all measured nodes.}
 
+\item{edge_weighting}{Character. How the edge midpoints enter the
+landscape. \code{"midpoint"} (default, the historical behaviour) gives
+every node and every edge midpoint the same weight, so a hub of degree
+\eqn{d} surrounds itself with \eqn{d} support points and dominates its
+neighbourhood. \code{"degree"} weights the midpoint of edge \eqn{(i, j)}
+by \eqn{(1/d_i + 1/d_j)/2}, so the midpoints around any node add up to
+one whatever its degree. \code{"none"} drops the midpoints and smooths
+the node values alone. All three keep the same coordinates, silhouette
+logic and permutation nulls; the choice is recorded in
+\code{metadata$edge_weighting} and reused by the sample-label tests.}
+
 \item{.parsed_network, .draw}{Internal controls used to reuse a parsed network
 and suppress repeated drawing in resampling workflows.}
 }
@@ -252,11 +264,14 @@ the same Gaussian-smoothed signal. A gene's smoothed score also reflects
 its neighbours, so a locally unchanged gene can receive a non-neutral score.
 
 Every edge contributes a support point at its midpoint, carrying the mean
-of its two endpoints. A hub with many edges therefore places many support
-points around itself and dominates the local average: the landscape is
-implicitly weighted by degree. The node-label permutation test keeps the
-network fixed, so this weighting is part of its null and does not bias the
-inference, but it does shape what the eye reads on the figure.
+of its two endpoints. With the default \code{edge_weighting = "midpoint"}
+a hub with many edges places many support points around itself and
+dominates the local average: the landscape is implicitly weighted by
+degree. The node-label permutation test keeps the network fixed, so this
+weighting is part of its null and does not bias the inference, but it does
+shape what the eye reads on the figure. \code{edge_weighting = "degree"}
+removes that emphasis while keeping the edges as carriers of neighbourhood
+signal; \code{"none"} smooths the nodes alone.
 }
 \examples{
 template_network <- file.path(system.file(package="levi"),"extdata",

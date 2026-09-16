@@ -9,8 +9,10 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
     signal_mode = c("ratio", "logfc", "zscore"), logfc_k = 1,
     p_adjust_method = "BY", region_threshold = 0.1, region_min_cells = 3L,
     .parsed_network = NULL, .draw = TRUE,
-    .progress = NULL, inference_unit = c("region", "cell"), perm_strata = NULL) {
+    .progress = NULL, inference_unit = c("region", "cell"), perm_strata = NULL,
+    edge_weighting = c("midpoint", "degree", "none")) {
     inference_unit <- match.arg(inference_unit)
+    edge_weighting <- match.arg(edge_weighting)
     perm_side   <- match.arg(perm_side)
     signal_mode <- match.arg(signal_mode)
     p_adjust_method <- match.arg(p_adjust_method, stats::p.adjust.methods)
@@ -141,6 +143,7 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
         (as.matrix(nodesCoord[edge_index[, 1], 2:3]) +
          as.matrix(nodesCoord[edge_index[, 2], 2:3])) / 2)
     if (!all(is.finite(coord))) stop("Network coordinates must be finite.")
+    support_weights <- .supportWeights(nnodes, edge_index, edge_weighting)
 
     # normalization and centralization
     minCoordX <- min(coord[,c(1)])
@@ -294,7 +297,8 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
             zoomValue       = zoomValue,
             increase        = increase,
             sigma           = sigmaCells,
-            occFrac         = occFrac)
+            occFrac         = occFrac,
+            weights         = support_weights)
 
         matrixOut <- matrixFinal$m1
         n <- resolutionValue
@@ -372,7 +376,8 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
                 signal_mode     = signal_mode,
                 logfc_k         = logfc_k,
                 regions         = if (inference_unit == "region") regions else NULL,
-                perm_strata     = resolved_strata)
+                perm_strata     = resolved_strata,
+                weights         = support_weights)
             if (inference_unit == "region") {
                 regions <- pvalMatrix
                 pvalMatrix <- NULL
@@ -477,6 +482,8 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
                     nodes = nodesCoord, edges = edge_index,
                     node_coordinates = nodeCoordNorm,
                     node_signal = as.numeric(SignalOut[seq_len(nnodes), 1]),
+                    edge_weighting = edge_weighting,
+                    support_weights = support_weights,
                     grid = list(resolution = resolutionValue, zoom = zoomValue,
                                 increase = increase, sigma = sigmaCells, occupancy = occFrac),
                     region_threshold = region_threshold,

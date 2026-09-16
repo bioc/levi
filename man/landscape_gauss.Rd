@@ -13,7 +13,8 @@ landscape_gauss(
   zoomValue,
   increase,
   sigma,
-  occFrac
+  occFrac,
+  weights = numeric(0)
 )
 }
 \arguments{
@@ -36,6 +37,10 @@ landscape_gauss(
 
 \item{occFrac}{fraction of the occupancy produced by an isolated point
 below which the cell is considered background and gets NA.}
+
+\item{weights}{optional n-vector of non-negative support weights, one per
+point. A point of weight w counts as w copies of itself in both the
+numerator and the occupancy; weight 0 removes it. Empty means all ones.}
 }
 \value{
 List with m1 (combined signal), m2 (test), m3 (control) and occ

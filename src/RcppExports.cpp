@@ -11,8 +11,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // landscape_gauss
-List landscape_gauss(NumericMatrix coord, NumericMatrix SignalOut, NumericMatrix signalExp, NumericMatrix signalCtrl, int resolutionValue, double zoomValue, double increase, double sigma, double occFrac);
-RcppExport SEXP _levi_landscape_gauss(SEXP coordSEXP, SEXP SignalOutSEXP, SEXP signalExpSEXP, SEXP signalCtrlSEXP, SEXP resolutionValueSEXP, SEXP zoomValueSEXP, SEXP increaseSEXP, SEXP sigmaSEXP, SEXP occFracSEXP) {
+List landscape_gauss(NumericMatrix coord, NumericMatrix SignalOut, NumericMatrix signalExp, NumericMatrix signalCtrl, int resolutionValue, double zoomValue, double increase, double sigma, double occFrac, NumericVector weights);
+RcppExport SEXP _levi_landscape_gauss(SEXP coordSEXP, SEXP SignalOutSEXP, SEXP signalExpSEXP, SEXP signalCtrlSEXP, SEXP resolutionValueSEXP, SEXP zoomValueSEXP, SEXP increaseSEXP, SEXP sigmaSEXP, SEXP occFracSEXP, SEXP weightsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -25,7 +25,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type increase(increaseSEXP);
     Rcpp::traits::input_parameter< double >::type sigma(sigmaSEXP);
     Rcpp::traits::input_parameter< double >::type occFrac(occFracSEXP);
-    rcpp_result_gen = Rcpp::wrap(landscape_gauss(coord, SignalOut, signalExp, signalCtrl, resolutionValue, zoomValue, increase, sigma, occFrac));
+    Rcpp::traits::input_parameter< NumericVector >::type weights(weightsSEXP);
+    rcpp_result_gen = Rcpp::wrap(landscape_gauss(coord, SignalOut, signalExp, signalCtrl, resolutionValue, zoomValue, increase, sigma, occFrac, weights));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -45,7 +46,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_levi_landscape_gauss", (DL_FUNC) &_levi_landscape_gauss, 9},
+    {"_levi_landscape_gauss", (DL_FUNC) &_levi_landscape_gauss, 10},
     {"_levi_nearest_node_grid", (DL_FUNC) &_levi_nearest_node_grid, 4},
     {NULL, NULL, 0}
 };

@@ -195,7 +195,8 @@ leviReplicateInference <- function(expression, groups, gene_ids = rownames(expre
             signalExp = signal, signalCtrl = signal,
             resolutionValue = grid$resolution, zoomValue = grid$zoom,
             increase = grid$increase, sigma = grid$sigma,
-            occFrac = grid$occupancy)$m1
+            occFrac = grid$occupancy,
+            weights = observed$metadata$support_weights %||% numeric(0))$m1
         .maximumRegionMass(z, grid$increase,
             observed$metadata$region_threshold,
             observed$metadata$region_min_cells)

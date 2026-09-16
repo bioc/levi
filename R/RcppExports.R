@@ -14,12 +14,15 @@
 #' @param sigma kernel width, in grid cells.
 #' @param occFrac fraction of the occupancy produced by an isolated point
 #'   below which the cell is considered background and gets NA.
+#' @param weights optional n-vector of non-negative support weights, one per
+#'   point. A point of weight w counts as w copies of itself in both the
+#'   numerator and the occupancy; weight 0 removes it. Empty means all ones.
 #' @return List with m1 (combined signal), m2 (test), m3 (control) and occ
 #'   (relative network occupancy), all of them resolutionValue x
 #'   resolutionValue matrices.
 #' @keywords internal
-landscape_gauss <- function(coord, SignalOut, signalExp, signalCtrl, resolutionValue, zoomValue, increase, sigma, occFrac) {
-    .Call('_levi_landscape_gauss', PACKAGE = 'levi', coord, SignalOut, signalExp, signalCtrl, resolutionValue, zoomValue, increase, sigma, occFrac)
+landscape_gauss <- function(coord, SignalOut, signalExp, signalCtrl, resolutionValue, zoomValue, increase, sigma, occFrac, weights = numeric(0)) {
+    .Call('_levi_landscape_gauss', PACKAGE = 'levi', coord, SignalOut, signalExp, signalCtrl, resolutionValue, zoomValue, increase, sigma, occFrac, weights)
 }
 
 #' Index of the node nearest to each grid cell

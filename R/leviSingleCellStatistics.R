@@ -334,7 +334,8 @@ leviSingleCellRegionalInference <- function(counts, donor, cell_type,
                 signalExp = signal, signalCtrl = signal,
                 resolutionValue = grid$resolution, zoomValue = grid$zoom,
                 increase = grid$increase, sigma = grid$sigma,
-                occFrac = grid$occupancy)$m1
+                occFrac = grid$occupancy,
+                weights = first$support_weights %||% numeric(0))$m1
             .maximumRegionMass(z, grid$increase,
                 landscapes[[tp]]$metadata$region_threshold,
                 landscapes[[tp]]$metadata$region_min_cells)

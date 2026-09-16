@@ -309,3 +309,89 @@ test_that(".labelPermutations counts large unblocked designs without enumerating
     expect_equal(ex$possible, 20)
     expect_length(ex$labels, 19L)
 })
+
+# -----------------------------------------------------------------------------
+# edge_weighting: support weights and their effect on the landscape
+# -----------------------------------------------------------------------------
+test_that(".supportWeights: degree weights sum to one around every node", {
+    # star: node 1 is the hub, 2..9 are leaves
+    ei <- cbind(1L, 2:9)
+    w <- levi:::.supportWeights(9L, ei, "degree")
+    expect_length(w, 9 + 8)
+    expect_equal(w[1:9], rep(1, 9))
+    expect_equal(sum(w[-(1:9)]), 8 * (1 / 8 + 1) / 2)   # 4.5: each leaf-side 1/2, hub-side 1/16
+    expect_equal(levi:::.supportWeights(9L, ei, "midpoint"), rep(1, 17))
+    expect_equal(levi:::.supportWeights(9L, ei, "none"), c(rep(1, 9), rep(0, 8)))
+})
+
+test_that("landscape_gauss: a weight of zero removes the point, ones reproduce the default", {
+    pts <- matrix(c(.2, .2, .8, .8, .5, .5), ncol = 2, byrow = TRUE)
+    m <- function(v) matrix(v, ncol = 1)
+    args <- list(resolutionValue = 30L, zoomValue = 0, increase = 1 / 30,
+                 sigma = 2, occFrac = 0.01)
+    full <- do.call(levi:::landscape_gauss, c(list(pts, m(c(0, 1, 1)), m(c(0, 1, 1)), m(c(0, 1, 1))), args))
+    ones <- do.call(levi:::landscape_gauss, c(list(pts, m(c(0, 1, 1)), m(c(0, 1, 1)), m(c(0, 1, 1))), args, list(weights = rep(1, 3))))
+    expect_equal(ones$m1, full$m1)
+    drop3 <- do.call(levi:::landscape_gauss, c(list(pts, m(c(0, 1, 1)), m(c(0, 1, 1)), m(c(0, 1, 1))), args, list(weights = c(1, 1, 0))))
+    two <- do.call(levi:::landscape_gauss, c(list(pts[1:2, ], m(c(0, 1)), m(c(0, 1)), m(c(0, 1))), args))
+    expect_equal(drop3$m1, two$m1)
+    expect_error(do.call(levi:::landscape_gauss, c(list(pts, m(c(0, 1, 1)), m(c(0, 1, 1)), m(c(0, 1, 1))), args, list(weights = 1:2))),
+                 "one value per point")
+})
+
+test_that("edge_weighting: the hub emphasis follows the option", {
+    # Hub in the centre, leaves on a circle: the midpoints sit halfway.
+    ang <- seq(0, 2 * pi, length.out = 9)[-9]
+    net <- list(nodes = data.frame(name = c("HUB", paste0("L", 1:8)),
+                                   x = c(50, 50 + 40 * cos(ang)),
+                                   y = c(50, 50 + 40 * sin(ang))),
+                edges = data.frame(V1 = "HUB", V2 = paste0("L", 1:8)))
+    expr <- data.frame(ID = c("HUB", paste0("L", 1:8)), logFC = c(3, rep(0, 8)))
+    run <- function(mode) suppressMessages(levi(expressionInput = expr,
+        networkCoordinatesInput = net$nodes, networkInteractionsInput = net$edges,
+        fileTypeInput = "stg", geneSymbolInput = "ID",
+        readExpColumn = readExpColumn("logFC-logFC"), signal_mode = "logfc",
+        resolutionValueInput = 20, smoothValueInput = 60,
+        edge_weighting = mode, .draw = FALSE))
+    sc <- lapply(c("midpoint", "degree", "none"), function(mode) {
+        r <- run(mode)
+        expect_identical(r$metadata$edge_weighting, mode)
+        s <- r$scores; setNames(s$LandscapeScore, s$Gene)
+    })
+    names(sc) <- c("midpoint", "degree", "none")
+    # Midpoints carry half the hub signal towards the leaves: the more weight
+    # they get, the lower the hub reads and the higher the leaves read.
+    expect_lt(sc$midpoint["HUB"], sc$degree["HUB"])
+    expect_lt(sc$degree["HUB"], sc$none["HUB"])
+    leaves <- paste0("L", 1:8)
+    expect_gt(mean(sc$midpoint[leaves]), mean(sc$degree[leaves]))
+    expect_gt(mean(sc$degree[leaves]), mean(sc$none[leaves]))
+    # A constant signal is neutral under every weighting.
+    flat <- data.frame(ID = expr$ID, logFC = 0)
+    for (mode in c("midpoint", "degree", "none")) {
+        r <- suppressMessages(levi(expressionInput = flat,
+            networkCoordinatesInput = net$nodes, networkInteractionsInput = net$edges,
+            fileTypeInput = "stg", geneSymbolInput = "ID",
+            readExpColumn = readExpColumn("logFC-logFC"), signal_mode = "logfc",
+            edge_weighting = mode, .draw = FALSE))
+        z <- r$landscape$z
+        expect_true(all(abs(z[!is.na(z)] - 0.5) < 1e-9))
+    }
+})
+
+test_that("edge_weighting is carried into the sample-label landscape null", {
+    ang <- seq(0, 2 * pi, length.out = 9)[-9]
+    net <- list(nodes = data.frame(name = c("HUB", paste0("L", 1:8)),
+                                   x = c(50, 50 + 40 * cos(ang)), y = c(50, 50 + 40 * sin(ang))),
+                edges = data.frame(V1 = "HUB", V2 = paste0("L", 1:8)))
+    genes <- c("HUB", paste0("L", 1:8))
+    set.seed(11)
+    x <- matrix(rnorm(9 * 8, 6, .2), 9, 8, dimnames = list(genes, NULL))
+    g <- rep(c("C", "T"), each = 4); x["HUB", g == "T"] <- x["HUB", g == "T"] + 2
+    r <- suppressMessages(leviReplicateInference(x, g, test = "T", control = "C",
+        networkCoordinatesInput = net$nodes, networkInteractionsInput = net$edges,
+        fileTypeInput = "stg", resolutionValueInput = 15, smoothValueInput = 30,
+        n_perm = 20, seed = 1, edge_weighting = "degree"))
+    expect_identical(r$metadata$edge_weighting, "degree")
+    expect_length(r$metadata$support_weights, 9 + 8)
+})
