@@ -516,6 +516,76 @@ down-regulated hubs. Both boundaries are calibrated against a null
 distribution from random label shuffling, controlling for network
 topology effects.
 
+## Beyond the landscape test: replication and graph TFCE
+
+The node-label p-value above is conditional on the network *and* on its
+layout. It asks whether the observed arrangement of the same values is
+unusually clustered, so it says nothing about replication, and a different
+drawing of the same graph is a different test. Two consequences matter in
+practice:
+
+* **When most of a network responds** (an a-priori pathway under a stimulus
+  that hits all of it, for instance), any shuffling of the values produces
+  regions of similar mass and the node-label p-value approaches 1, even though
+  the effect is real and strong. The test is answering a spatial question, not
+  a biological one.
+* **The landscape depends on the layout**. Force-directed layouts are
+  stochastic, and regions detected on one drawing overlap only partly with
+  those detected on another.
+
+When biological replicates are available, we recommend reporting the landscape
+together with two sample-label tests, which permute condition labels across
+replicates instead of values across nodes:
+
+* `leviReplicateInference()` keeps the landscape and its regions but recomputes
+  the fold-change from permuted labels, so `PSpatial` now answers whether the
+  region replicates.
+* `leviGraphTFCEInference()` needs no layout at all. It fits a limma
+  moderated t per gene and integrates it over every threshold with
+  threshold-free cluster enhancement on the network components, controlling
+  the family-wise error rate with the maximum over genes and directions. It is
+  the more powerful of the two and is unaffected by the layout, so it is the
+  natural confirmatory test for a region seen on the landscape.
+
+With four replicates per group the example below is small enough to enumerate
+all `choose(8, 4) = 70` label arrangements, so the smallest attainable
+p-value is 1/70.
+
+```{r replication_tfce, eval=TRUE}
+hub_net <- system.file("extdata", "hub_network.dat", package = "levi")
+genes   <- c("HUB", paste0("N", 1:8))
+
+# Four control and four treated replicates on a log2 scale; the hub and its
+# first two neighbours respond.
+set.seed(2026)
+expression <- matrix(rnorm(9 * 8, mean = 6, sd = 0.3), 9, 8,
+                     dimnames = list(genes, paste0("s", 1:8)))
+groups <- rep(c("control", "treated"), each = 4)
+expression[c("HUB", "N1", "N2"), groups == "treated"] <-
+    expression[c("HUB", "N1", "N2"), groups == "treated"] + 1.5
+
+# Landscape regions tested against biological replication
+rep_res <- leviReplicateInference(
+    expression, groups, test = "treated", control = "control",
+    networkCoordinatesInput = hub_net, fileTypeInput = "dat",
+    resolutionValueInput = 20, smoothValueInput = 30, seed = 1)
+rep_res$regions$summary[, c("Region", "Direction", "Mass", "PSpatial",
+                            "Significant")]
+
+# Layout-free confirmation: graph TFCE with the same null
+tfce <- leviGraphTFCEInference(
+    expression, groups, hub_net, test = "treated", control = "control",
+    seed = 1)
+tfce$statistic[order(tfce$statistic$PGlobal), ][1:4, ]
+```
+
+Both tests find the hub and its two responding neighbours; the node-label test
+alone could not have told us that this replicates. For paired designs pass
+`blocks`; for single-cell data use the `leviSingleCell*` functions, which
+permute donors rather than cells. The vignette `levi_inference` explains the
+three nulls in detail and `levi_validation` reports their calibration and
+power.
+
 # Single-Cell RNA-seq (Seurat)
 
 **levi** can visualize single-cell marker genes on biological networks,

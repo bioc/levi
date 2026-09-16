@@ -246,6 +246,11 @@ tfce_par <- leviGraphTFCEInference(
    p-value floor.
 5. Treat node-label significance as a statement about spatial organisation,
    never as evidence that an effect replicates.
+6. Whenever replicates exist, report a sample-label test next to the
+   landscape: `leviReplicateInference()` for the same regions and
+   `leviGraphTFCEInference()` as the layout-free confirmation. A network in
+   which most genes respond gives a node-label p-value near 1 by
+   construction, while both sample-label tests remain informative.
 
 # Session information
 
