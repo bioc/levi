@@ -36,6 +36,13 @@ Landscape core (degree weighting, 2026-09-16)
       leviGraphTFCEInference() next to the node-label test, with a
       worked example; the reporting checklist in levi_inference.Rmd gains
       the same item.
+    o Shiny interface: the 2D landscape and the 3D surface are shown in
+      two tabs, so either figure takes the full width; ticking "3D
+      surface" brings the 3D tab to the front. The format selector,
+      "Download Plot" and the expression area belong to the 2D tab, the
+      HTML download to the 3D tab. The gene, node score, peak and region
+      tables are tabs of their own below the figure; "Genes" lists what
+      was brushed on the map and is hidden while the 3D tab is in front.
     o Integration tests (tests/testthat/test_integration_real_data.R)
       replay the real-data analyses of the supplement, airway, GSE10072
       and Kang 2018 on STRING and KEGG networks, and check that their

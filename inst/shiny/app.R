@@ -210,45 +210,75 @@ ui <- fluidPage(
                 condition = "$('html').hasClass('shiny-busy')",
                 tags$div("Loading...", id = "loadmessage")),
 
-            plotOutput(outputId = "graph",
-                       brush = brushOpts(id = "plotBrush", resetOnNew = TRUE)),
+            # The 2D map and the 3D surface live in two tabs so either can
+            # take the full width; everything below (selected area, tables)
+            # is shared and unchanged. The brush belongs to the 2D map: the
+            # surface is for reading the relief, the map is what you select
+            # regions on.
+            tabsetPanel(id = "viewTabs", selected = "view2d",
+                tabPanel("2D landscape", value = "view2d",
+                    br(),
+                    plotOutput(outputId = "graph",
+                               brush = brushOpts(id = "plotBrush",
+                                                 resetOnNew = TRUE)),
+                    # Format selector and "Download Plot" for the 2D map;
+                    # the 3D tab has its own HTML download. The button
+                    # floats left, so the expression area (sum over the
+                    # brushed cells of this map) is cleared below it.
+                    uiOutput("out3"),
+                    div(style = "clear:both"),
+                    h4(textOutput("expArea"))),
+                tabPanel("3D surface", value = "view3d",
+                    br(),
+                    if (has_plotly) conditionalPanel(
+                        condition = "!input.plot3d",
+                        helpText("Tick \"3D surface\" in the File tab to ",
+                                 "build the surface.")),
+                    if (has_plotly) conditionalPanel(
+                        condition = "input.plot3d",
+                        plotly::plotlyOutput(outputId = "graph3d",
+                                             height = "520px"),
+                        helpText("Rotate the surface, then use the camera ",
+                                 "icon on the plot toolbar to save a PNG of ",
+                                 "the current view, or download it as an ",
+                                 "interactive HTML file that keeps this ",
+                                 "view."),
+                        downloadButton("download3D", "Download 3D (HTML)"),
+                        helpText("Camera of the current view, ready to ",
+                                 "paste into leviSave3D(camera = ...):"),
+                        verbatimTextOutput("camera3dCode")),
+                    if (!has_plotly) helpText(
+                        "Install the plotly package to enable the 3D ",
+                        "surface."))
+            ),
 
-            # Shown only when "3D surface" is ticked. The brush belongs to the
-            # 2D map above, which stays in place: the surface is for reading
-            # the relief, the map is what you select regions on.
-            if (has_plotly) conditionalPanel(
-                condition = "input.plot3d",
-                plotly::plotlyOutput(outputId = "graph3d", height = "520px"),
-                helpText("Rotate the surface, then use the camera icon on the ",
-                         "plot toolbar to save a PNG of the current view, or ",
-                         "download it as an interactive HTML file that keeps ",
-                         "this view."),
-                downloadButton("download3D", "Download 3D (HTML)"),
-                helpText("Camera of the current view, ready to paste into ",
-                         "leviSave3D(camera = ...):"),
-                verbatimTextOutput("camera3dCode")),
-
-            h4(textOutput("expArea")),
-            uiOutput("out3"),
-            br(), br(), br(),
-
-            # Genes selected by brushing the plot
-            dataTableOutput(outputId = "landdatatable"),
             br(),
 
-            # Node landscape scores
-            uiOutput("scoreTableHeader"),
-            uiOutput("scoreDownloadUI"),
-            DT::dataTableOutput(outputId = "scoreTableOutput"),
-            br(),
-
-            # Peak / valley table
-            uiOutput("peakTableHeader"),
-            uiOutput("peakDownloadUI"),
-            DT::dataTableOutput(outputId = "peakTableOutput"),
-            uiOutput("regionTableHeader"),
-            uiOutput("regionDownloadUI"),
-            DT::dataTableOutput(outputId = "regionTableOutput")
+            # The tables in tabs of their own. "Genes" lists what was brushed
+            # on the 2D map, so it is hidden while the 3D tab is in front;
+            # the other three describe the landscape and stay available in
+            # both views.
+            tabsetPanel(id = "tableTabs", selected = "tabGenes",
+                tabPanel("Genes", value = "tabGenes",
+                    br(),
+                    helpText("Genes under the area selected on the 2D map."),
+                    dataTableOutput(outputId = "landdatatable")),
+                tabPanel("Node scores", value = "tabScores",
+                    br(),
+                    uiOutput("scoreTableHeader"),
+                    uiOutput("scoreDownloadUI"),
+                    DT::dataTableOutput(outputId = "scoreTableOutput")),
+                tabPanel("Peaks and valleys", value = "tabPeaks",
+                    br(),
+                    uiOutput("peakTableHeader"),
+                    uiOutput("peakDownloadUI"),
+                    DT::dataTableOutput(outputId = "peakTableOutput")),
+                tabPanel("Regions", value = "tabRegions",
+                    br(),
+                    uiOutput("regionTableHeader"),
+                    uiOutput("regionDownloadUI"),
+                    DT::dataTableOutput(outputId = "regionTableOutput"))
+            )
         )
     )
 )
@@ -609,6 +639,25 @@ server <- function(input, output, session) {
         # or zooms the surface; the download below reuses it so the saved
         # file opens at the view the user chose.
         plotly::event_register(surface3d(), "plotly_relayout")
+    })
+
+    # Ticking "3D surface" brings the 3D tab to the front; unticking goes
+    # back to the map.
+    observeEvent(input$plot3d, {
+        updateTabsetPanel(session, "viewTabs",
+                          selected = if (isTRUE(input$plot3d)) "view3d"
+                                     else "view2d")
+    }, ignoreInit = TRUE)
+
+    # The "Genes" table only makes sense next to the map it is brushed on.
+    observeEvent(input$viewTabs, {
+        if (identical(input$viewTabs, "view3d")) {
+            if (identical(input$tableTabs, "tabGenes"))
+                updateTabsetPanel(session, "tableTabs", selected = "tabScores")
+            hideTab("tableTabs", "tabGenes")
+        } else {
+            showTab("tableTabs", "tabGenes")
+        }
     })
 
     if (has_plotly) observeEvent(plotly::event_data("plotly_relayout"), {
