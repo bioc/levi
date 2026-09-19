@@ -95,7 +95,7 @@ calling \code{leviFromSTRING()} when exact coordinates must be reproduced.
 # All examples below query the STRING database over the network and
 # download a species-wide alias file (~20 MB), so they are not run
 # during automated checks.
-\donttest{
+\dontrun{
 genes <- c("TP53", "BRCA1", "EGFR", "MYC", "PTEN")
 set.seed(42)
 net <- leviFromSTRING(genes, species = 9606, score_threshold = 700)

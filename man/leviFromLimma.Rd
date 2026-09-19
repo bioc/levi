@@ -33,7 +33,7 @@ mock_top <- data.frame(
 )
 expr_df <- leviFromLimma(mock_top)
 head(expr_df)
-\donttest{
+\dontrun{
 library(limma)
 fit2 <- eBayes(fit)
 expr_df <- leviFromLimma(fit2, coef = 1, gene_col = "GeneSymbol")

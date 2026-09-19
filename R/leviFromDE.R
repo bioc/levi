@@ -22,7 +22,7 @@
 #' )
 #' expr_df <- leviFromDESeq2(mock_res)
 #' head(expr_df)
-#' \donttest{
+#' \dontrun{
 #' library(DESeq2)
 #' res <- results(dds)
 #' expr_df <- leviFromDESeq2(res, gene_col = "GeneSymbol")
@@ -62,7 +62,7 @@ leviFromDESeq2 <- function(dds_result, gene_col = "GeneID") {
 #' )
 #' expr_df <- leviFromEdgeR(mock_tt)
 #' head(expr_df)
-#' \donttest{
+#' \dontrun{
 #' library(edgeR)
 #' fit <- glmQLFit(dge, design)
 #' qlf <- glmQLFTest(fit, coef = 2)
@@ -116,7 +116,7 @@ leviFromEdgeR <- function(fit, coef = 1, gene_col = "GeneID") {
 #' )
 #' expr_df <- leviFromLimma(mock_top)
 #' head(expr_df)
-#' \donttest{
+#' \dontrun{
 #' library(limma)
 #' fit2 <- eBayes(fit)
 #' expr_df <- leviFromLimma(fit2, coef = 1, gene_col = "GeneSymbol")
@@ -163,7 +163,7 @@ leviFromLimma <- function(fit, coef = 1, gene_col = "GeneID") {
 #' )
 #' expr_df <- leviFromSeurat(mock_markers)
 #' head(expr_df)
-#' \donttest{
+#' \dontrun{
 #' library(Seurat)
 #' markers <- FindMarkers(seurat_obj, ident.1 = "Tumor", ident.2 = "Normal")
 #' expr_df <- leviFromSeurat(markers, gene_col = "GeneSymbol")

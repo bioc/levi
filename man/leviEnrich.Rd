@@ -74,7 +74,7 @@ res <- levi(expressionInput         = hub_e,
             readExpColumn           = readExpColumn("Test-Control"),
             resolutionValueInput    = 10,
             smoothValueInput        = 5)
-\donttest{
+\dontrun{
 # Requires clusterProfiler and the org.Hs.eg.db annotation package,
 # plus real gene symbols in the network.
 enrich <- leviEnrich(res,

@@ -36,7 +36,7 @@ mock_markers <- data.frame(
 )
 expr_df <- leviFromSeurat(mock_markers)
 head(expr_df)
-\donttest{
+\dontrun{
 library(Seurat)
 markers <- FindMarkers(seurat_obj, ident.1 = "Tumor", ident.2 = "Normal")
 expr_df <- leviFromSeurat(markers, gene_col = "GeneSymbol")

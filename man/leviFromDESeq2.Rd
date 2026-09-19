@@ -37,7 +37,7 @@ mock_res <- data.frame(
 )
 expr_df <- leviFromDESeq2(mock_res)
 head(expr_df)
-\donttest{
+\dontrun{
 library(DESeq2)
 res <- results(dds)
 expr_df <- leviFromDESeq2(res, gene_col = "GeneSymbol")

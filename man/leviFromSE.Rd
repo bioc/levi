@@ -92,7 +92,7 @@ if (requireNamespace("SummarizedExperiment", quietly = TRUE)) {
         ctrl_level    = "Normal")
     head(expr_df)
 }
-\donttest{
+\dontrun{
 # Pattern 2: direct sample names, on your own SummarizedExperiment
 expr_df <- leviFromSE(se,
     test_col = c("tumor_1", "tumor_2"),

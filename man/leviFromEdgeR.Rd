@@ -34,7 +34,7 @@ mock_tt <- data.frame(
 )
 expr_df <- leviFromEdgeR(mock_tt)
 head(expr_df)
-\donttest{
+\dontrun{
 library(edgeR)
 fit <- glmQLFit(dge, design)
 qlf <- glmQLFTest(fit, coef = 2)
