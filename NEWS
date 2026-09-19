@@ -43,6 +43,11 @@ Landscape core (degree weighting, 2026-09-16)
       HTML download to the 3D tab. The gene, node score, peak and region
       tables are tabs of their own below the figure; "Genes" lists what
       was brushed on the map and is hidden while the 3D tab is in front.
+    o The GUI section of vignette("levi") is rewritten around two new
+      screenshots (2D map with a brushed selection; Settings tab, 3D
+      surface and regions table) and documents every control of the
+      side panel and every tab of the results. The GUI summary in
+      vignette("levi_guide") is updated to match.
     o Integration tests (tests/testthat/test_integration_real_data.R)
       replay the real-data analyses of the supplement, airway, GSE10072
       and Kang 2018 on STRING and KEGG networks, and check that their

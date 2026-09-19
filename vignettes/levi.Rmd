@@ -117,8 +117,9 @@ already exists, prefer it over a computed one.
 
 ## Graphical User Interface (GUI)
 
-The GUI runs locally via Shiny and provides interactive controls for all
-visualization parameters.
+The GUI runs locally via Shiny and covers the same analysis as script mode:
+it calls `levi()` with the parameters chosen in the side panel, so a landscape
+built in the interface and one built from a script agree, p-values included.
 
 ```{r eval=FALSE}
 library(levi)
@@ -126,8 +127,85 @@ LEVIui(browser = TRUE)   # Opens in the system browser
 LEVIui(browser = FALSE)  # Opens inside RStudio
 ```
 
-<center><img src="levi.png" width=150%></center>
-<center><b>Figure 1:</b> Graphical User Interface.</center>
+<center><img src="levi.png" width="100%"></center>
+<center><b>Figure 1:</b> The interface after a run on the example data, with
+the <i>File</i> tab of the side panel, the 2D landscape and the genes under
+the area selected on the map.</center>
+
+### Side panel
+
+The side panel has two tabs. **File** holds everything needed for a run;
+**Settings** holds the parameters that change the landscape and the test.
+
+*File tab*
+
+* **Network input type** and **Upload the network file**: the network format
+  (Medusa DAT, RedeR DYN, Pajek NET or STRING/STITCH) and the file itself. The
+  STRING/STITCH option asks for two files, coordinates and interactions.
+* **Expression data source**: a tab-delimited file, or a Bioconductor object
+  saved as `.rds` (`SummarizedExperiment`, `SingleCellExperiment` or
+  `ExpressionSet`). For a file, tick **Expression values in log scale** when
+  the columns are log2 values and choose **Two Samples** (test against
+  control) or **One Sample**. For an object, choose the assay, the condition
+  column and the test and control levels.
+* **Select ID field**, **Select test field**, **Select control field**: the
+  column with the gene identifiers, which must match the node names of the
+  network, and the two columns to compare.
+* **Colour scale**: *Multicolor*, or *Two colors* with one of six palettes.
+  Colours are applied without re-running.
+* **Chart with contour** adds contour lines to the map. **3D surface** builds
+  the interactive surface and brings the *3D surface* tab to the front.
+* **Highlight genes** draws a circle, in the chosen colour, at the grid cell
+  of each gene listed. **Label peaks on map** writes the name of the gene
+  closest to each detected peak and valley.
+* **Run** builds the landscape.
+
+*Settings tab*
+
+* **Contrast**, **Resolution**, **Smoothing** and **Zoom**: the visual
+  parameters of `levi()`. Contrast sets how tightly the silhouette hugs the
+  network, resolution the grid size, smoothing the width of the Gaussian
+  kernel and zoom the margin around the network. Their ranges and effects
+  are tabulated in `vignette("levi_guide")`.
+* **Signal mode** and **logFC steepness k**: how expression is turned into
+  the landscape score, see *Signal transformation*.
+* **Permutations**, **Test unit**, **Test direction** and **Significance
+  level**: the node-label permutation test. With permutations above zero the
+  significant regions are outlined and labelled on the map; the default test
+  unit is the region (maximum regional mass), the legacy per-cell test is
+  still offered.
+
+### Results
+
+The main panel shows the figure in two tabs and the tables in four.
+
+* **2D landscape**: the map, with a format selector (TIFF, BMP, JPEG, PNG)
+  and **Download Plot**. Click and drag on the map to select an area:
+  **Expression area** shows the summed score of the selected cells and the
+  **Genes** tab lists the genes under the selection.
+* **3D surface**: the interactive surface, shown when *3D surface* is ticked.
+  Rotate it, then use the camera icon of the toolbar to save a PNG of the
+  current view, or **Download 3D (HTML)** to keep the view in an interactive
+  file. The camera of the current view is printed as R code, ready to paste
+  into `leviSave3D(camera = ...)` to reproduce it from a script.
+* **Genes**: the genes under the area selected on the 2D map. This tab is
+  shown only while the 2D map is in front.
+* **Node scores**: the landscape score of every node, ranked, with a CSV
+  download. This is `result$scores` of script mode.
+* **Peaks and valleys**: the detected extrema and the closest gene to each.
+  This is `result$peaks`.
+* **Regions**: the connected areas of the landscape beyond the neutral score,
+  with their size, mass and peak score; after a permutation test, the
+  regional p-value and whether the region passes the significance level.
+  This is `result$regions$summary`.
+
+<center><img src="levi_3d.png" width="100%"></center>
+<center><b>Figure 2:</b> The <i>Settings</i> tab of the side panel, the 3D
+surface and the regions table after a permutation test with 100
+iterations.</center>
+
+A busy indicator is shown at the top of the page while the landscape or the
+permutation test is being computed.
 
 ## Script Mode
 

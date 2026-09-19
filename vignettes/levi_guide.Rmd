@@ -870,14 +870,30 @@ LEVIui(browser = FALSE)  # open in RStudio Viewer
 LEVIui(browser = TRUE)   # open in system browser
 ```
 
+The side panel has a *File* tab (network and expression inputs, colour
+scale, contour, 3D surface, gene highlight, *Run*) and a *Settings* tab
+(contrast, resolution, smoothing, zoom, signal mode and the permutation
+test). The main panel shows the *2D landscape* and the *3D surface* in two
+tabs, and the tables *Genes*, *Node scores*, *Peaks and valleys* and
+*Regions* in four more. The interface calls `levi()` with the chosen
+parameters, so it agrees with script mode.
+
 GUI-only features:
-- **Brush selection** — click and drag on the landscape to compute scores for
-  a custom region; gene list is shown below the plot.
-- **Gene search** — type a gene symbol to highlight it with a yellow circle.
+- **Brush selection** — click and drag on the 2D map to select an area; the
+  summed score is shown as *Expression area* and the genes under the
+  selection fill the *Genes* tab (shown only while the 2D map is in front).
+- **Gene highlight** — list gene names to circle them on the map in a chosen
+  colour.
 - **Peak labels** — checkbox overlays gene names at detected peak/valley
   positions (uses `ggrepel` if installed).
-- **Progress bar** — shown during permutation test with per-iteration feedback.
-- **Download buttons** — plot (PNG/PDF), score table (CSV), peak table (CSV).
+- **3D surface** — interactive surface with an HTML download that keeps the
+  current view, and the camera printed as code for `leviSave3D()`.
+- **Progress indicator** — shown while the landscape or the permutation test
+  is computed.
+- **Download buttons** — 2D map (TIFF, BMP, JPEG, PNG), 3D surface (HTML),
+  node score, peak and region tables (CSV).
+
+The interface is described with screenshots in `vignette("levi")`.
 
 ---
 
