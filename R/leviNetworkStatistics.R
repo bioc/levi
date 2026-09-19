@@ -4,27 +4,39 @@
 
 # -- Threshold-free cluster enhancement on a graph ---------------------------
 
-# Connected components of the subgraph induced by `active` nodes.
-.componentsAt <- function(active, n_nodes, edges) {
+# Connected components of the subgraph induced by `active` nodes, on a graph
+# built once by the caller.
+.componentsAt <- function(active, g) {
     if (!length(active)) return(list())
-    g <- .graphFromEdges(n_nodes, edges)
     sub <- igraph::induced_subgraph(g, active)
     split(active, igraph::components(sub)$membership)
 }
 
 # Smith & Nichols (2009) TFCE with network components as clusters. Returns a
 # nodes x 2 matrix with the "over" (positive) and "under" (negative) scores.
+#
+# The graph is built once per call and the components are recomputed only
+# when the active set changes between consecutive thresholds: with a few
+# nodes most of the n_steps thresholds share the same active set, and this
+# routine runs once per permutation draw.
 .tfce <- function(statistic, nodes, edges, E = .5, H = 2, n_steps = 100L) {
     x <- as.numeric(statistic[nodes])
     ans <- matrix(0, length(nodes), 2,
                   dimnames = list(nodes, c("over", "under")))
+    g <- .graphFromEdges(length(nodes), edges)
     for (side in c("over", "under")) {
         v <- if (side == "over") pmax(x, 0) else pmax(-x, 0)
         top <- max(v, na.rm = TRUE)
         if (!is.finite(top) || top == 0) next
         dh <- top / n_steps
+        active_prev <- NULL
+        members <- list()
         for (h in seq(dh, top, length.out = n_steps)) {
-            members <- .componentsAt(which(v >= h), length(nodes), edges)
+            active <- which(v >= h)
+            if (!identical(active, active_prev)) {
+                members <- .componentsAt(active, g)
+                active_prev <- active
+            }
             for (cc in members)
                 ans[cc, side] <- ans[cc, side] + length(cc)^E * h^H * dh
         }

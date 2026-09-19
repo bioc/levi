@@ -143,6 +143,11 @@ Inference layer
       than 10 counts in two pseudobulks before the fit, always keeping the
       network genes; the interaction coefficient is located by its exact
       design column name.
+    o Graph TFCE builds the igraph object once per call and recomputes the
+      components only when the set of nodes above the threshold changes,
+      instead of rebuilding the graph at each of the 100 integration steps
+      of every permutation. The single-cell TFCE example runs in under a
+      second instead of about 6 s; results are identical.
     o All permutation tests share one engine with a BPPARAM argument.
       SerialParam is the default; MulticoreParam() and SnowParam() give
       identical results because all randomness stays in the calling
