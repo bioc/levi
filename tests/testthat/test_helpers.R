@@ -211,7 +211,7 @@ test_that("%||%: numeric types are preserved", {
 # landscape_gauss / nearest_node_grid  (nucleo C++)
 # =============================================================================
 
-# grade de apoio: 4 pontos, um por quadrante
+# support grid: 4 points, one per quadrant
 .pts <- matrix(c(0.25, 0.75, 0.25, 0.75,
                  0.25, 0.25, 0.75, 0.75), ncol = 2)
 .lg <- function(sig, sigma = 2, occ = 0.05) {
@@ -221,14 +221,14 @@ test_that("%||%: numeric types are preserved", {
                            increase = 1/19, sigma = sigma, occFrac = occ)
 }
 
-test_that("landscape_gauss: devolve m1, m2, m3 e occ com a forma da grade", {
+test_that("landscape_gauss: returns m1, m2, m3 and occ with the shape of the grid", {
     L <- .lg(c(0.1, 0.4, 0.6, 0.9))
     expect_true(all(c("m1", "m2", "m3", "occ") %in% names(L)))
     expect_equal(dim(L$m1), c(20L, 20L))
     expect_equal(dim(L$occ), c(20L, 20L))
 })
 
-test_that("landscape_gauss: o resultado fica dentro da faixa dos sinais", {
+test_that("landscape_gauss: the result stays within the range of the signals", {
     sig <- c(0.1, 0.4, 0.6, 0.9)
     v <- as.numeric(.lg(sig)$m1)
     v <- v[!is.na(v)]
@@ -264,21 +264,21 @@ test_that("landscape_gauss: outside the silhouette the value is NA, not zero", {
 })
 
 test_that("landscape_gauss: higher value near the point with the strongest signal", {
-    L <- .lg(c(0, 0, 0, 1))          # so o quarto ponto, em (0.75, 0.75)
-    hi <- L$m1[16, 16]               # celula proxima de (0.75, 0.75)
-    lo <- L$m1[5, 5]                 # celula proxima de (0.25, 0.25)
+    L <- .lg(c(0, 0, 0, 1))          # only the fourth point, at (0.75, 0.75)
+    hi <- L$m1[16, 16]               # cell near (0.75, 0.75)
+    lo <- L$m1[5, 5]                 # cell near (0.25, 0.25)
     expect_true(!is.na(hi) && !is.na(lo))
     expect_gt(hi, lo)
 })
 
-test_that("landscape_gauss: rejeita entradas inconsistentes", {
+test_that("landscape_gauss: rejects inconsistent inputs", {
     m <- matrix(c(0.5, 0.5), ncol = 1)
     expect_error(levi:::landscape_gauss(.pts, m, m, m, 20, 0, 1/19, 2, 0.05))
     m4 <- matrix(rep(0.5, 4), ncol = 1)
     expect_error(levi:::landscape_gauss(.pts, m4, m4, m4, 0, 0, 1/19, 2, 0.05))
 })
 
-test_that("nearest_node_grid: rotula cada celula com o no mais proximo", {
+test_that("nearest_node_grid: labels each cell with the nearest node", {
     g <- levi:::nearest_node_grid(.pts, resolutionValue = 20,
                                   zoomValue = 0, increase = 1/19)
     expect_equal(dim(g), c(20L, 20L))

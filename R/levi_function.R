@@ -227,7 +227,7 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
             arguments <- list(geneSymbol, baseTest, baseControl)
             for (i in seq(arguments)){
                 if (!is.element(arguments[i], head_express) ) {
-                    stop("This argument do not exist in this dataframe: ",
+                    stop("Column not found in the expression data: ",
                          arguments[i])}
             }
             expressSelect <- expression[, c(geneSymbol, baseTest, baseControl)]
