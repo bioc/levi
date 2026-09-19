@@ -5,6 +5,8 @@ author:
     affiliation: São Paulo State University (UNESP)
     email: jose.luiz@unesp.br
 date: "`r Sys.Date()`"
+bibliography: bibliography.bib
+link-citations: true
 output:
   BiocStyle::html_document:
     toc: true
@@ -74,7 +76,7 @@ moves. By default (`inference_unit = "region"`) the eight-connected regions
 beyond the neutral score are redetected in each permutation, and every
 observed region is compared with the *largest* regional mass seen under the
 null, over both directions. Taking the maximum controls the search across all
-regions without a further adjustment.
+regions without a further adjustment [@Westfall1993; @Nichols2002].
 
 ```{r landscape, fig.height=5}
 lfc <- rowMeans(expression[, groups == "treated"]) -
@@ -142,9 +144,9 @@ arrangements, so the test enumerated all of them (`permutation_exact` is
 `TRUE`) and the smallest attainable p-value is 1/70.
 
 The same null drives the graph-native tests, which do not need a layout at
-all. `leviGraphTFCEInference()` fits a limma moderated t per gene and
-integrates it over thresholds with threshold-free cluster enhancement, using
-network components as clusters:
+all. `leviGraphTFCEInference()` fits a limma moderated t per gene [@Smyth2004]
+and integrates it over thresholds with threshold-free cluster enhancement
+[@Smith2009], using network components as clusters:
 
 ```{r tfce}
 tfce <- leviGraphTFCEInference(
@@ -161,10 +163,10 @@ rate across the network.
 Pass `blocks` (donor, batch, litter) to permute labels only within blocks;
 the block also enters the linear model as a fixed effect. When nuisance
 covariates are continuous or numerous, `leviGraphTFCEFreedmanLane()` permutes
-the residuals of the nuisance-only model instead of the labels. The
-single-cell functions aggregate cells into donor pseudobulks and permute the
-donors, jointly across cell types, so that cells are never treated as
-replicates.
+the residuals of the nuisance-only model instead of the labels
+[@Freedman1983; @Winkler2014]. The single-cell functions aggregate cells into
+donor pseudobulks and permute the donors, jointly across cell types, so that
+cells are never treated as replicates [@Squair2021].
 
 # How small a design can be
 
@@ -188,7 +190,7 @@ why their p-values must not be read as evidence of replication.
 # Edge null: is it the wiring?
 
 The rewiring tests keep the gene scores fixed and generate networks with the
-same degree sequence. They ask whether the observed clustering needs the
+same degree sequence by degree-preserving edge swaps [@Maslov2002]. They ask whether the observed clustering needs the
 specific wiring or merely the hubs' degrees.
 
 ```{r rewiring}
@@ -208,8 +210,9 @@ together".
 # Autocorrelation on the graph
 
 `leviGraphMoran()` and `leviGraphGetisOrd()` are the graph analogues of the
-spatial statistics used in geography. Both use the node-label null. The local
-tables carry a Benjamini-Hochberg adjustment across nodes, and the Getis-Ord
+spatial statistics used in geography, Moran's I [@Moran1950] and Getis-Ord
+G [@Getis1992]. Both use the node-label null. The local tables carry a
+Benjamini-Hochberg adjustment across nodes [@Benjamini1995], and the Getis-Ord
 `Significant` flag uses the two-sided adjusted p-value.
 
 ```{r moran}
@@ -257,3 +260,5 @@ tfce_par <- leviGraphTFCEInference(
 ```{r session}
 sessionInfo()
 ```
+
+# References

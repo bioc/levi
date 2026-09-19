@@ -5,6 +5,8 @@ author:
     affiliation: São Paulo State University (UNESP)
     email: jose.luiz@unesp.br
 date: "`r Sys.Date()`"
+bibliography: bibliography.bib
+link-citations: true
 output:
   BiocStyle::html_document:
     toc: true
@@ -61,12 +63,12 @@ Each replicate is a dataset with no effect anywhere: independent normal
 values for every gene (node-label test) or 4 vs 4 samples drawn from the same
 distribution (sample-label tests). The **family-wise error rate** is the
 fraction of replicates in which the smallest p-value of the test fell at or
-below 0.05. Every levi test controls its search with a maximum statistic, so
-this fraction should be at most 0.05.
+below 0.05. Every levi test controls its search with a maximum statistic
+[@Westfall1993; @Nichols2002], so this fraction should be at most 0.05.
 
 Two networks were used: the 30-node network shipped as `medusa.dat`, and a
 300-node scale-free graph (Barabási-Albert, m = 2) laid out with
-Kamada-Kawai, closer in size and degree distribution to a STRING module.
+Kamada-Kawai [@Kamada1989], closer in size and degree distribution to a STRING module.
 
 ```{r type1}
 type1 <- read.csv(file.path(val, "type1_error.csv"))
@@ -151,7 +153,8 @@ extreme of the seventy in nearly every replicate.
 
 The landscape is drawn over coordinates, and force-directed layouts are
 stochastic. The same 300-node graph and the same expression data were laid
-out twenty times with Fruchterman-Reingold, and the node-label regional test
+out twenty times with Fruchterman-Reingold [@Fruchterman1991], and the
+node-label regional test
 was run on each. Sensitivity to the layout can only be measured where the
 test rejects, so the effect is deliberately large: a 20-gene module around
 the hub shifted by 3 SD, with smoothing 20. Per layout the table reports the
@@ -179,10 +182,11 @@ depend on the drawing belong to the graph-native tests.
 
 # A real dataset: dexamethasone in airway smooth muscle
 
-The `airway` experiment (Himes et al. 2014) measured RNA-seq in four airway
+The `airway` experiment [@Himes2014] measured RNA-seq in four airway
 smooth muscle cell lines, each treated with dexamethasone and left untreated.
-DESeq2 with `~ cell + dex` was run once, offline; the 80 genes with the
-strongest response that STRING recognised, their STRING interactions
+DESeq2 [@Love2014] with `~ cell + dex` was run once, offline; the 80 genes
+with the strongest response that STRING [@Szklarczyk2021] recognised, their
+STRING interactions
 (combined score >= 400) with a Kamada-Kawai layout, and their per-sample
 log2 CPM were saved as text files. The provenance is in
 `inst/extdata/airway/README.md`.
@@ -273,8 +277,8 @@ clusters[clusters$Nodes >= 2,
          c("Region", "Direction", "Nodes", "Mass", "PeakGene", "PSpatial")]
 ```
 
-The rewiring null keeps every gene's Wald statistic and every node's degree
-and asks whether the clusters of strong responders need the specific STRING
+The rewiring null [@Maslov2002] keeps every gene's Wald statistic and every
+node's degree and asks whether the clusters of strong responders need the specific STRING
 wiring. A small p-value here means the responding genes are connected to
 *each other* more than their degrees alone would predict.
 
@@ -293,3 +297,5 @@ system2("Rscript", file.path(scripts, "11-airway-preprocess.R"))
 ```{r session}
 sessionInfo()
 ```
+
+# References

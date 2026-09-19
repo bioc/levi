@@ -1,6 +1,6 @@
 ---
 title: "levi - Landscape Expression Visualization Interface"
-author: "Isabelle M. da Silva, José R. Pilan, Agnes A. S. Takeda, Jose L. Rybarczyk-Filho"
+author: "José R. Pilan, Agnes A. S. Takeda, Jose L. Rybarczyk-Filho"
 date: "`r doc_date()`"
 package: "`r pkg_ver('levi')`"
 bibliography: bibliography.bib
@@ -58,10 +58,10 @@ Expression data can be obtained from:
 
 |Extension|Format|
 |:-------:|:----:|
-|`dat`|Medusa (DAT)|
-|`dyn`|RedeR (DYN)|
-|`net`|Pajek (NET)|
-|`stg`|STRING / STITCH|
+|`dat`|Medusa (DAT) [@Hooper2005]|
+|`dyn`|RedeR (DYN) [@Castro2012]|
+|`net`|Pajek (NET) [@Batagelj1998]|
+|`stg`|STRING / STITCH [@Szklarczyk2021]|
 
 Network interaction data can be obtained from:
 
@@ -75,7 +75,7 @@ landscape over the plane the network occupies. Interaction databases and
 collaborators usually hand over something simpler: a list of pairs, with no
 coordinates at all.
 
-`leviFromEdges()` computes them with **igraph** and returns the two tables
+`leviFromEdges()` computes them with **igraph** [@Csardi2006] and returns the two tables
 `levi()` expects:
 
 ```{r eval=TRUE, fig.height=5, fig.width=5}
@@ -234,8 +234,9 @@ multicolor <- levi(
 )
 ```
 
-The example dataset contains lung cancer microarray data comparing tumor
-tissue from current smokers against normal tissue from never-smokers.
+The example dataset contains lung adenocarcinoma microarray data
+[@Landi2008] comparing tumor tissue from current smokers against normal
+tissue from never-smokers.
 Elevated regions (warm colors) represent network areas where genes are
 more expressed in tumors, while depressed regions (cool colors) represent
 down-regulated areas. The contour lines delineate boundaries between
@@ -394,7 +395,9 @@ condition; valleys correspond to down-regulated regions.
 # Importing from Differential Expression Tools
 
 **levi** accepts results directly from standard differential expression
-workflows, eliminating the need to manually prepare input files.
+workflows: DESeq2 [@Love2014], edgeR [@Robinson2010], limma [@Ritchie2015]
+and Seurat [@Hao2021]. This eliminates the need to manually prepare input
+files.
 
 ## From DESeq2
 
@@ -553,7 +556,8 @@ landscape is rebuilt each time. The layout remains fixed.
 
 By default (`inference_unit = "region"`) the eight-connected regions beyond
 the neutral score are redetected in every permutation and each observed
-region is compared with the largest regional mass seen under the null, over
+region is compared with the largest regional mass seen under the null
+[@Westfall1993; @Nichols2002], over
 both directions. `result$regions$summary` gains `PSpatial` and
 `Significant`, and significant regions are outlined in white on the plot.
 The legacy `inference_unit = "cell"` tests every grid cell and draws
@@ -619,8 +623,9 @@ replicates instead of values across nodes:
   the fold-change from permuted labels, so `PSpatial` now answers whether the
   region replicates.
 * `leviGraphTFCEInference()` needs no layout at all. It fits a limma
-  moderated t per gene and integrates it over every threshold with
-  threshold-free cluster enhancement on the network components, controlling
+  moderated t per gene [@Smyth2004] and integrates it over every threshold
+  with threshold-free cluster enhancement [@Smith2009] on the network
+  components, controlling
   the family-wise error rate with the maximum over genes and directions. It is
   the more powerful of the two and is unaffected by the layout, so it is the
   natural confirmatory test for a region seen on the landscape.
@@ -666,8 +671,8 @@ power.
 
 # Single-Cell RNA-seq (Seurat)
 
-**levi** can visualize single-cell marker genes on biological networks,
-enabling pathway-level interpretation of cell-type-specific expression.
+**levi** can visualize single-cell marker genes from Seurat [@Hao2021] on
+biological networks, enabling pathway-level interpretation of cell-type-specific expression.
 
 ```{r eval=FALSE}
 library(Seurat)
@@ -802,8 +807,9 @@ across different experiment types.
 
 ## RNA-seq: airway (DESeq2 + STRING)
 
-The `airway` dataset contains RNA-seq counts from airway smooth muscle cells
-treated with dexamethasone (DEX) vs untreated controls across 4 cell lines.
+The `airway` dataset [@Himes2014] contains RNA-seq counts from airway smooth
+muscle cells treated with dexamethasone (DEX) vs untreated controls across 4
+cell lines.
 DESeq2 identifies differentially expressed genes; `leviFromSTRING()` builds
 the interaction network automatically.
 
@@ -841,8 +847,8 @@ levi(
 
 ## Microarray: ALL (limma + STRING)
 
-The `ALL` dataset contains Affymetrix HG-U95Av2 microarray data from 128
-Acute Lymphoblastic Leukemia patients. RMA-normalized values are in log2 scale,
+The `ALL` dataset [@Chiaretti2004] contains Affymetrix HG-U95Av2 microarray
+data from 128 Acute Lymphoblastic Leukemia patients. RMA-normalized values are in log2 scale,
 making `signal_mode = "logfc"` the natural choice.
 
 ```{r eval=FALSE}
@@ -880,7 +886,8 @@ levi(
 
 ## scRNA-seq: PBMC 10x (Seurat + STRING)
 
-Single-cell RNA-seq data from PBMCs. `FindMarkers()` computes
+Single-cell RNA-seq data from 3k PBMCs of a healthy donor [@TenX2016].
+`FindMarkers()` computes
 `avg_log2FC` values per gene for a given cell type contrast, which are fed
 directly into levi using single-column logFC mode.
 
@@ -930,7 +937,8 @@ levi(
 # Building networks from STRING
 
 **levi** can retrieve a protein interaction network directly from the
-[STRING database](https://string-db.org) using the `leviFromSTRING()` function,
+[STRING database](https://string-db.org) [@Szklarczyk2021] using the
+`leviFromSTRING()` function,
 which wraps the `STRINGdb` Bioconductor package. This eliminates the need to
 manually download and format network files.
 
@@ -1021,8 +1029,8 @@ net <- leviFromSTRING(
 
 | `layout` | Algorithm | Best for |
 |:---:|:---|:---|
-| `"fr"` | Fruchterman-Reingold | General use, 50–500 nodes |
-| `"kk"` | Kamada-Kawai | Small networks (≤ 100 nodes) — better aesthetics |
+| `"fr"` | Fruchterman-Reingold [@Fruchterman1991] | General use, 50–500 nodes |
+| `"kk"` | Kamada-Kawai [@Kamada1989] | Small networks (≤ 100 nodes) — better aesthetics |
 | `"lgl"` | Large Graph Layout | Large networks (> 500 nodes) |
 | `"dh"` | Davidson-Harel | High quality, slower |
 | `"circle"` | Ring | Pathway-like linear chains |
@@ -1081,8 +1089,6 @@ levi(
 sessionInfo()
 ```
 
-# References
-
 ## Signal contracts and reproducibility
 
 Signal interpretation: `ratio` preserves Test/(Test + Control), with no min-max
@@ -1116,3 +1122,5 @@ edgeR and limma adapters, select the logFC column against itself with
 For edgeR, select the contrast in `glmLRT()` or `glmQLFTest()` before calling
 `leviFromEdgeR()` on the resulting test object. KEGG uses the supplied universe,
 converting both selected genes and background to ENTREZID with the same OrgDb.
+
+# References

@@ -7,6 +7,8 @@ author:
   - name: José Luiz Rybarczyk Filho
     affiliation: São Paulo State University (UNESP)
 date: "`r Sys.Date()`"
+bibliography: bibliography.bib
+link-citations: true
 output:
   BiocStyle::html_document:
     toc: true
@@ -444,8 +446,9 @@ leviDiff(
 
 # Differential expression adapters
 
-**levi** provides four adapter functions that convert DE tool outputs directly
-into the data.frame format expected by `expressionInput`.
+**levi** provides four adapter functions that convert the outputs of DESeq2
+[@Love2014], edgeR [@Robinson2010], limma [@Ritchie2015] and Seurat
+[@Hao2021] directly into the data.frame format expected by `expressionInput`.
 
 ## leviFromDESeq2
 
@@ -601,8 +604,8 @@ head(res_from_de$scores[, c("Gene", "LandscapeScore", "Rank")], 4)
 # Building networks from STRING
 
 `leviFromSTRING()` retrieves a protein interaction network from the
-[STRING database](https://string-db.org) and computes a 2-D layout
-automatically. No manual file download is required.
+[STRING database](https://string-db.org) [@Szklarczyk2021] and computes a 2-D
+layout with igraph [@Csardi2006] automatically. No manual file download is required.
 
 ```{r string_basic, eval=FALSE}
 library(levi)
@@ -639,8 +642,8 @@ levi(
 
 | `layout` | Algorithm | Best for |
 |:---:|:---|:---|
-| `"fr"` | Fruchterman-Reingold | General use, 50–500 nodes |
-| `"kk"` | Kamada-Kawai | Small networks (≤ 100 nodes) |
+| `"fr"` | Fruchterman-Reingold [@Fruchterman1991] | General use, 50–500 nodes |
+| `"kk"` | Kamada-Kawai [@Kamada1989] | Small networks (≤ 100 nodes) |
 | `"lgl"` | Large Graph Layout | Large networks (> 500 nodes) |
 | `"dh"` | Davidson-Harel | Highest quality, slower |
 | `"circle"` | Ring | Pathway-like chains |
@@ -685,9 +688,9 @@ net3 <- leviFromSTRING(genes, input_directory = "~/.stringdb_cache")
 
 ## RNA-seq: airway (DESeq2 + STRING)
 
-The `airway` dataset contains RNA-seq counts from airway smooth muscle cells
-treated with dexamethasone (DEX) vs untreated controls (4 cell lines, ~64k
-genes). We use DESeq2 to identify DE genes and `leviFromSTRING()` to build
+The `airway` dataset [@Himes2014] contains RNA-seq counts from airway smooth
+muscle cells treated with dexamethasone (DEX) vs untreated controls (4 cell
+lines, ~64k genes). We use DESeq2 to identify DE genes and `leviFromSTRING()` to build
 the interaction network.
 
 ```{r airway, eval=FALSE}
@@ -726,7 +729,8 @@ candidates for pathway-level drug targets or effectors.
 
 ## Microarray: ALL leukemia (limma + STRING)
 
-The `ALL` dataset (Affymetrix HG-U95Av2, 128 patients) compares B-cell and
+The `ALL` dataset [@Chiaretti2004] (Affymetrix HG-U95Av2, 128 patients)
+compares B-cell and
 T-cell subtypes of Acute Lymphoblastic Leukemia. Data are RMA-normalized
 (log2 scale), so `signal_mode = "logfc"` with `logfc_k = 2` (tight microarray
 fold-changes) is appropriate.
@@ -765,6 +769,7 @@ levi(
 
 ## scRNA-seq: PBMC (Seurat + STRING)
 
+The 3k PBMC dataset from 10x Genomics [@TenX2016] is analysed with Seurat.
 FindMarkers identifies genes with `avg_log2FC` values per cluster. Since
 scRNA-seq fold-changes can reach ±5, use `logfc_k = 0.5` for a softer sigmoid.
 
@@ -962,3 +967,5 @@ edgeR and limma adapters, select the logFC column against itself with
 For edgeR, select the contrast in `glmLRT()` or `glmQLFTest()` before calling
 `leviFromEdgeR()` on the resulting test object. KEGG uses the supplied universe,
 converting both selected genes and background to ENTREZID with the same OrgDb.
+
+# References
