@@ -36,6 +36,27 @@ file.edit(file.path(system.file("scripts", package = "levi"),
 
 The order is progressive, but each script works on its own.
 
+## Integration tests on real data
+
+`tests/testthat/test_integration_real_data.R` replays the analyses of the
+supplement (airway RNA-seq, GSE10072 microarray with its smoking strata and
+the KEGG focal-adhesion network, Kang 2018 single-cell monocytes with the
+STRING and KEGG JAK-STAT networks) and checks that their conclusions still
+hold: which region comes first, whether it is significant, exact p-values
+where the test enumerates every arrangement, cluster sizes and lead genes.
+They are skipped by default. To run them from the package root:
+
+```sh
+LEVI_INTEGRATION=1 LEVI_REAL_DATA=/path/to/real_data_tests \
+    Rscript -e 'testthat::test_local(filter = "integration")'
+```
+
+`LEVI_REAL_DATA` must hold `GSE10072_series_matrix.txt.gz`, `GPL96.annot.gz`,
+`kang18.rds` (muscData `Kang18_8vs8` as a `SingleCellExperiment`) and the
+saved networks `gse10072*_{nodes,edges}.tsv`, `kang*_{nodes,edges}.tsv`. The
+airway case needs only the files shipped in `inst/extdata/airway/`. The whole
+file takes a few minutes; the Kang cases are the slow part.
+
 ## If you are short on time
 
 Three ideas account for most of the correct use of the package:

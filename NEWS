@@ -36,6 +36,11 @@ Landscape core (degree weighting, 2026-09-16)
       leviGraphTFCEInference() next to the node-label test, with a
       worked example; the reporting checklist in levi_inference.Rmd gains
       the same item.
+    o Integration tests (tests/testthat/test_integration_real_data.R)
+      replay the real-data analyses of the supplement, airway, GSE10072
+      and Kang 2018 on STRING and KEGG networks, and check that their
+      conclusions hold. They are skipped unless LEVI_INTEGRATION is set;
+      see inst/scripts/README.md.
 
 Inference layer (technical review, 2026-09-06)
 ----------------------------------------------

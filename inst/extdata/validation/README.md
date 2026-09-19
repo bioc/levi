@@ -1,7 +1,7 @@
 # Calibration results
 
-Generated on 2026-09-13 by inst/scripts/10-calibration.R with 3 workers,
-300 replicates per null setting, in 93 minutes.
+Generated on 2026-09-16 by inst/scripts/10-calibration.R with 3 workers,
+300 replicates per null setting, in 83 minutes.
 
 * type1_error.csv: family-wise error rate of each test under the global
   null (no effect anywhere), by network.
@@ -12,4 +12,4 @@ Generated on 2026-09-13 by inst/scripts/10-calibration.R with 3 workers,
   layouts of the 300-node graph; pairwise Jaccard of the genes in
   significant regions, versus the layout-free TFCE result.
 
-levi 3.11.1, R 4.6.1.
+levi 1.99.0, R 4.6.1.

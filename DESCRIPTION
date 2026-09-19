@@ -74,6 +74,7 @@ Suggests:
     edgeR,
     limma,
     Seurat,
+    SingleCellExperiment,
     S4Vectors,
     clusterProfiler,
     org.Hs.eg.db,
