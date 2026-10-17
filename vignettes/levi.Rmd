@@ -631,8 +631,9 @@ replicates instead of values across nodes:
   natural confirmatory test for a region seen on the landscape.
 
 With four replicates per group the example below is small enough to enumerate
-all `choose(8, 4) = 70` label arrangements, so the smallest attainable
-p-value is 1/70.
+all `choose(8, 4) = 70` label arrangements; they come in tied pairs (the
+complement of an arrangement gives the same maximum over both directions),
+so the smallest attainable p-value is 2/70.
 
 ```{r replication_tfce, eval=TRUE}
 hub_net <- system.file("extdata", "hub_network.dat", package = "levi")

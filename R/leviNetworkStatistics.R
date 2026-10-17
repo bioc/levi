@@ -127,6 +127,7 @@ leviGraphTFCEInference <- function(expression, groups, networkCoordinatesInput,
             GlobalSignificant = p_global <= .05),
         null_max = null, null_global = null_global,
         exact = perms$exact, possible_permutations = perms$possible,
+        p_floor = perms$floor,
         method = paste("limma t; graph TFCE; joint maximum across network",
                        "and direction sample-label permutation"))
 }

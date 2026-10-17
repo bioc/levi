@@ -25,8 +25,8 @@
 # midpoint. "midpoint" is the historical behaviour (every point weighs 1, so
 # a hub of degree d surrounds itself with d extra points). "degree" gives the
 # midpoint of edge (i, j) the weight (1/d_i + 1/d_j) / 2, so the midpoints
-# incident to any node add up to one whatever its degree. "none" removes the
-# midpoints from the deposit; the coordinates stay so that indices are
+# receive reduced weights; their sum around a node is not generally one.
+# "none" removes the midpoints from the deposit; the coordinates stay so that indices are
 # unchanged, they simply carry weight zero.
 .supportWeights <- function(n_nodes, edge_index,
                             edge_weighting = c("midpoint", "degree", "none")) {

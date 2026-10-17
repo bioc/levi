@@ -143,6 +143,7 @@ leviBulkGraphInference <- function(counts, groups, networkCoordinatesInput,
     regions$summary$Significant <- regions$summary$PSpatial <= .05
     list(statistic = data.frame(Gene = names(observed_stat), Wald = as.numeric(observed_stat)),
          regions = regions, threshold = threshold, n_perm = nrow(null), exact = perms$exact,
+         possible_permutations = perms$possible, p_floor = perms$floor,
          dispersion_estimator = estimator,
          refit_dispersions = refit_dispersions,
          method = "DESeq2 Wald; graph-connected maximum cluster mass; sample labels")
@@ -170,10 +171,15 @@ leviPseudobulk <- function(counts, donor, cell_type, condition = NULL,
     if (!is.null(condition) && length(condition) != ncol(counts))
         stop("'condition' must have one value per cell.", call. = FALSE)
     if (is.null(rownames(counts))) stop("'counts' needs gene row names.", call. = FALSE)
-    if (is.null(condition)) condition <- rep(NA_character_, ncol(counts))
-    has_condition <- !all(is.na(condition))
-    key <- if (has_condition) paste(donor, condition, cell_type, sep = "::") else
-        paste(donor, cell_type, sep = "::")
+    has_condition <- !is.null(condition)
+    # Encode each field separately: delimiters in labels must never merge
+    # distinct tuples or be used to reconstruct the original metadata.
+    fields <- list(as.character(donor), as.character(cell_type))
+    if (has_condition) fields <- list(fields[[1]], as.character(condition), fields[[2]])
+    if (any(vapply(fields, anyNA, logical(1))))
+        stop("Pseudobulk grouping labels must not contain NA.", call. = FALSE)
+    codes <- lapply(fields, function(x) match(x, sort(unique(x))))
+    key <- do.call(paste, c(codes, sep = ":"))
     groups <- split(seq_along(key), key)
     groups <- groups[lengths(groups) >= min_cells]
     if (!length(groups)) stop("No donor-cell-type pseudobulk passes min_cells.", call. = FALSE)
@@ -181,15 +187,15 @@ leviPseudobulk <- function(counts, donor, cell_type, condition = NULL,
                  numeric(nrow(counts)))
     if (is.null(dim(pb))) pb <- matrix(pb, ncol = 1L)
     rownames(pb) <- rownames(counts)
-    info <- do.call(rbind, strsplit(names(groups), "::", fixed = TRUE))
-    if (has_condition) {
-        colnames(pb) <- paste0(info[, 1], "_", info[, 2], "_", info[, 3])
-        return(list(counts = pb, donor = info[, 1], condition = info[, 2],
-                    cell_type = info[, 3], n_cells = lengths(groups)))
-    }
-    colnames(pb) <- paste0(info[, 1], "_", info[, 2])
-    list(counts = pb, donor = info[, 1], cell_type = info[, 2],
-         n_cells = lengths(groups))
+    first <- vapply(groups, function(i) i[1], integer(1))
+    info <- lapply(fields, function(x) x[first])
+    colnames(pb) <- make.unique(do.call(paste, c(info, sep = "_")))
+    n_cells <- stats::setNames(lengths(groups), colnames(pb))
+    if (has_condition)
+        return(list(counts = pb, donor = info[[1]], condition = info[[2]],
+                    cell_type = info[[3]], n_cells = n_cells))
+    list(counts = pb, donor = info[[1]], cell_type = info[[2]],
+         n_cells = n_cells)
 }
 
 #' Single-cell pseudobulk graph-cluster inference

@@ -48,6 +48,8 @@
 #'   \item STRINGdb maps gene symbols to STRING protein IDs.
 #'   \item Interactions above \code{score_threshold} are retrieved.
 #'   \item An igraph subnetwork is built and isolated nodes are retained.
+#'     STRING lists every interaction in both directions; the duplicate is
+#'     removed so that \code{$edges} holds one row per interacting pair.
 #'   \item A 2-D layout is computed (coordinates scaled to \[0, 100\]).
 #'   \item Gene symbols are recovered from the STRING node metadata.
 #' }
@@ -169,6 +171,12 @@ leviFromSTRING <- function(genes,
         stop("The STRING subnetwork is empty (no edges above score_threshold ",
              score_threshold, "). Try lowering score_threshold.", call. = FALSE)
 
+    # STRING lists every interaction in both directions, so the undirected
+    # graph returned by STRINGdb carries two parallel edges per protein pair
+    # and as_edgelist() would report each pair twice. Keep one edge per pair
+    # before the layout and the edge table.
+    g <- .simplifyUndirected(g)
+
     # Add gene symbols as vertex attribute
     # STRINGdb vertex names are STRING IDs; recover gene symbols via mapped df
     id_to_gene <- stats::setNames(mapped$gene, mapped$STRING_id)
@@ -198,4 +206,11 @@ leviFromSTRING <- function(genes,
             igraph::ecount(g), " edges.")
 
     invisible(list(nodes = nodes, edges = edges, graph = g))
+}
+
+# One edge per unordered pair, no self-loops. Vertex attributes are kept and
+# the first value of every edge attribute (e.g. combined_score) is retained.
+.simplifyUndirected <- function(g) {
+    igraph::simplify(g, remove.multiple = TRUE, remove.loops = TRUE,
+                     edge.attr.comb = "first")
 }

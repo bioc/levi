@@ -234,12 +234,12 @@ test_that("Kang monocytes: node-label p ~ 1 on the STRING network, donor-level t
     expect_equal(cm$Nodes[1], 71L)
     expect_equal(cm$PSpatial[1], 2 / 256)
     expect_equal(sum(cm$Significant), 1L)
-    # the landscape region covering the whole network is not significant
-    # under the same exact null (18/256): on this DE-derived network only
-    # the graph-cluster statistic separates the response from the null
+    # the landscape region covering the whole network reaches the floor under
+    # the same exact null (2/256) once the null uses the observed logfc_k
+    # (0.7); with the null at logfc_k = 1 it was 18/256
     ls <- reg$landscapes[[ct]]$regions$summary
     expect_equal(ls$Region[1], "over_01")
-    expect_equal(ls$PSpatial[1], 18 / 256)
+    expect_equal(ls$PSpatial[1], 2 / 256)
 
     tf <- leviSingleCellTFCEInference(k$counts, k$donor, k$cell_type,
         k$condition, net$nodes, net$edges, fileTypeInput = "stg",

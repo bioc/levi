@@ -155,6 +155,12 @@ leviFromLimma <- function(fit, coef = 1, gene_col = "GeneID") {
 #' Use \code{signal_mode = "logfc"} and
 #' \code{readExpColumn("Test-Test")}. The output Test column contains
 #' avg_log2FC; Control contains pct.2 as annotation, not a comparable control.
+#'
+#' \code{FindMarkers()} statistics are computed over cells, so they are
+#' pseudoreplicated for donor-level inference: the result is suitable for
+#' visualisation and node-label tests, and donor-level inference must go
+#' through \code{\link{leviPseudobulk}} and the single-cell inference
+#' functions (\code{\link{leviSingleCellTFCEInference}} and relatives).
 #' @examples
 #' mock_markers <- data.frame(
 #'     avg_log2FC = c(1.5, -0.8, 0.3),
@@ -189,5 +195,9 @@ leviFromSeurat <- function(markers, gene_col = "GeneID") {
     colnames(out) <- c(gene_col, "Control", "Test")
     out <- na.omit(out)
     rownames(out) <- NULL
+    message("leviFromSeurat(): FindMarkers() statistics are computed over ",
+            "cells; the result is suitable for visualisation and node-label ",
+            "tests, and donor-level inference must go through ",
+            "leviPseudobulk() and the single-cell inference functions.")
     return(out)
 }

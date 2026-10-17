@@ -210,6 +210,7 @@ leviReplicateInference <- function(expression, groups, gene_ids = rownames(expre
     observed$metadata$n_perm <- nrow(null)
     observed$metadata$permutation_exact <- perms$exact
     observed$metadata$possible_permutations <- perms$possible
+    observed$metadata$p_floor <- perms$floor
     observed <- .annotateReplicateRegions(observed, sig_level)
     observed
 }
@@ -359,5 +360,6 @@ leviGraphClusterInference <- function(expression, groups,
     observed$summary$Significant <- observed$summary$PSpatial <= .05
     list(statistic = data.frame(Gene = names(observed_stat), T = as.numeric(observed_stat)),
          regions = observed, threshold = threshold, n_perm = nrow(null), exact = perms$exact,
+         possible_permutations = perms$possible, p_floor = perms$floor,
          method = "limma moderated t; graph-connected maximum cluster mass; sample labels")
 }

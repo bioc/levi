@@ -660,8 +660,10 @@ server <- function(input, output, session) {
         }
     })
 
-    if (has_plotly) observeEvent(plotly::event_data("plotly_relayout"), {
-        ev <- plotly::event_data("plotly_relayout")
+    # Wait for a browser event before asking Plotly for event data. Before
+    # the optional 3D widget is rendered, no event is registered yet.
+    if (has_plotly) observeEvent(input[["plotly_relayout-A"]], {
+        ev <- plotly::event_data("plotly_relayout", source = "A", priority = "event")
         if (!is.null(ev[["scene.camera"]])) v$camera3d <- ev[["scene.camera"]]
     }, ignoreNULL = TRUE)
 

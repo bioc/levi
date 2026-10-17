@@ -328,3 +328,46 @@ test_that("leviFromSTRING: validates arguments before touching the network", {
     expect_error(leviFromSTRING("TP53", layout = "spiral"), "'arg'")
     expect_error(leviFromSTRING("TP53", network_type = "genetic"), "'arg'")
 })
+
+test_that("leviFromSTRING: STRING's two-direction listing collapses to one edge per pair", {
+    skip_if_not_installed("igraph")
+    # STRINGdb returns an undirected graph with two parallel edges per
+    # protein pair (one per direction of the protein.links file) and, at
+    # times, a self-loop. The helper used by leviFromSTRING() keeps one.
+    g <- igraph::graph_from_data_frame(
+        data.frame(from = c("A", "A", "B", "B", "C"),
+                   to   = c("B", "B", "C", "C", "C")),
+        directed = FALSE)
+    igraph::E(g)$combined_score <- c(900, 900, 700, 700, 500)
+    igraph::V(g)$gene_symbol <- c("a", "b", "c")
+
+    s <- levi:::.simplifyUndirected(g)
+
+    expect_equal(igraph::ecount(s), 2L)
+    expect_false(igraph::any_multiple(s))
+    expect_false(igraph::any_loop(s))
+    expect_equal(igraph::V(s)$gene_symbol, c("a", "b", "c"))
+    expect_equal(sort(igraph::E(s)$combined_score), c(700, 900))
+    el <- igraph::as_edgelist(s)
+    expect_equal(nrow(unique(el)), 2L)
+})
+
+test_that("stg path collapses an edge listed twice to one midpoint", {
+    # Saved STRING edge tables built before the fix list every pair twice;
+    # the landscape core keeps one support point per distinct row.
+    nodes <- data.frame(name = c("A", "B", "C"),
+                        x = c(0.1, 0.5, 0.9), y = c(0.2, 0.6, 0.3))
+    once  <- data.frame(V1 = c("A", "B"), V2 = c("B", "C"))
+    twice <- once[c(1, 1, 2, 2), ]
+    expr <- data.frame(ID = c("A", "B", "C"), logFC = c(1, 0, -1))
+    run <- function(edges) levi(expressionInput = expr,
+        networkCoordinatesInput = nodes, networkInteractionsInput = edges,
+        fileTypeInput = "stg", geneSymbolInput = "ID",
+        readExpColumn = readExpColumn("logFC-logFC"), signal_mode = "logfc",
+        resolutionValueInput = 20, smoothValueInput = 40, .draw = FALSE)
+    a <- run(once); b <- run(twice)
+    expect_equal(nrow(a$metadata$edges), 2L)
+    expect_equal(nrow(b$metadata$edges), 2L)
+    expect_equal(b$metadata$support_weights, a$metadata$support_weights)
+    expect_equal(b$scores, a$scores)
+})

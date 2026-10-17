@@ -20,7 +20,9 @@ aggregated separately for each donor-by-condition-by-cell-type combination.}
 }
 \value{
 List with pseudobulk counts and donor, cell-type and (when supplied)
-  condition metadata.
+  condition metadata. Grouping labels are preserved verbatim; missing donor,
+  cell-type or supplied condition labels are rejected. Count-column names are
+  made unique when concatenated labels coincide.
 }
 \description{
 Aggregate single-cell counts to pseudobulks

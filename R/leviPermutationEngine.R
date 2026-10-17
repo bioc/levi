@@ -17,9 +17,19 @@
 # Sample-label permutations, optionally within exchangeability blocks.
 #
 # Returns a list with $labels (list of label vectors), $exact (whether every
-# distinct assignment was enumerated) and $possible (their number). In the
-# exact scheme the observed assignment is left out of $labels; the (k + 1) /
-# (n + 1) estimator adds it back.
+# distinct assignment was enumerated), $possible (their number) and $floor
+# (the smallest p-value the test can report). In the exact scheme the
+# observed assignment is left out of $labels; the (k + 1) / (n + 1) estimator
+# adds it back.
+#
+# The floor is 1 / (n_perm + 1) for Monte Carlo draws. Under exact
+# enumeration of a design that is balanced within every block, the
+# complement arrangement (every label swapped) negates each per-gene
+# statistic, and the global p-values of every test built on this engine
+# (PGlobal, PSpatial) take their maximum over both directions, so the
+# complement ties the observed value and the attainable floor is
+# 2 / n_possible rather than 1 / n_possible. The per-direction POver and
+# PUnder columns are compared with one direction's null and keep 1 / n.
 .labelPermutations <- function(groups, blocks = NULL, n_perm = 999L,
                                method = c("auto", "monte_carlo", "exact"),
                                max_exact = 50000L, alpha = 0.05) {
@@ -46,13 +56,23 @@
     if (exact && n_possible > max_exact)
         stop("Exact permutation space exceeds 'max_exact'.", call. = FALSE)
 
-    # The smallest p-value a test can report is 1 / (draws + 1). When that
-    # floor sits above alpha no result can be declared significant, which is
-    # a property of the design and not of the data, so say so up front.
+    # When the floor sits above alpha no result can be declared significant,
+    # which is a property of the design and not of the data, so say so up
+    # front.
     n_draws <- if (exact) n_possible - 1 else as.integer(n_perm)
-    floor_p <- 1 / (n_draws + 1)
+    symmetric <- exact && all(vapply(by_block, function(i) {
+        lev <- unique(groups[i])
+        length(lev) == 1L || 2L * sum(groups[i] == lev[2]) == length(i)
+    }, logical(1)))
+    floor_p <- if (symmetric) min(1, 2 / n_possible) else 1 / (n_draws + 1)
     if (floor_p > alpha) {
-        cause <- if (exact) {
+        cause <- if (symmetric) {
+            sprintf(paste("Only %s distinct label arrangements are possible,",
+                          "and they come in tied pairs because swapping",
+                          "every label gives the same maximum statistic",
+                          "over both directions"),
+                    format(n_possible, big.mark = ","))
+        } else if (exact) {
             sprintf("Only %s distinct label arrangements are possible",
                     format(n_possible, big.mark = ","))
         } else {
@@ -71,7 +91,8 @@
             for (i in by_block) x[i] <- sample(x[i])
             x
         }, simplify = FALSE)
-        return(list(labels = labels, exact = FALSE, possible = n_possible))
+        return(list(labels = labels, exact = FALSE, possible = n_possible,
+                    floor = floor_p))
     }
 
     # Every way of placing the test labels inside one block.
@@ -94,7 +115,7 @@
         x
     })
     labels <- labels[!vapply(labels, identical, logical(1), groups)]
-    list(labels = labels, exact = TRUE, possible = n_possible)
+    list(labels = labels, exact = TRUE, possible = n_possible, floor = floor_p)
 }
 
 # Node-label draws: the same scores in a random order.
@@ -129,9 +150,15 @@
 
 # (k + 1) / (n + 1) upper-tail p-values of each observed value against one
 # null vector of maxima. The +1 counts the observed data as a draw, so no
-# finite number of permutations reports zero.
+# finite number of permutations reports zero. A null maximum within a
+# relative 1e-12 of the observed value counts as a tie, the same tolerance
+# as .regionalPvalues(): under exact enumeration the complement arrangement
+# reproduces the observed statistic up to floating-point rounding, and
+# without the tolerance a p-value of 1/n or 2/n depended on the last bits.
 .maxPvalue <- function(null_max, observed) {
-    (1 + colSums(outer(null_max, observed, `>=`))) / (length(null_max) + 1)
+    tolerance <- 1e-12 * pmax(1, abs(observed))
+    (1 + colSums(outer(null_max, observed - tolerance, `>=`))) /
+        (length(null_max) + 1)
 }
 
 # Largest cluster mass in each direction from a .graphRegions() summary.

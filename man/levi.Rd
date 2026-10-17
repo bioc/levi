@@ -201,9 +201,9 @@ landscape. \code{"midpoint"} (default, the historical behaviour) gives
 every node and every edge midpoint the same weight, so a hub of degree
 \eqn{d} surrounds itself with \eqn{d} support points and dominates its
 neighbourhood. \code{"degree"} weights the midpoint of edge \eqn{(i, j)}
-by \eqn{(1/d_i + 1/d_j)/2}, so the midpoints around any node add up to
-one whatever its degree. \code{"none"} drops the midpoints and smooths
-the node values alone. All three keep the same coordinates, silhouette
+by \eqn{(1/d_i + 1/d_j)/2}, reducing their influence relative to
+unit weights. Their sum around a node is not generally one.
+\code{"none"} drops the midpoints and smooths the node values alone. All three keep the same coordinates, silhouette
 logic and permutation nulls; the choice is recorded in
 \code{metadata$edge_weighting} and reused by the sample-label tests.}
 

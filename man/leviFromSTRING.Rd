@@ -74,6 +74,8 @@ layout algorithm, so no manual network file download is required.
   \item STRINGdb maps gene symbols to STRING protein IDs.
   \item Interactions above \code{score_threshold} are retrieved.
   \item An igraph subnetwork is built and isolated nodes are retained.
+    STRING lists every interaction in both directions; the duplicate is
+    removed so that \code{$edges} holds one row per interacting pair.
   \item A 2-D layout is computed (coordinates scaled to \[0, 100\]).
   \item Gene symbols are recovered from the STRING node metadata.
 }

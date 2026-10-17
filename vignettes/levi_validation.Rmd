@@ -119,14 +119,15 @@ landscape and one directly on the graph.
 
 ```{r power}
 power <- read.csv(file.path(val, "power.csv"))
-ggplot(power, aes(x = effect, y = power, colour = test, group = test)) +
+ggplot(power, aes(x = effect, y = power, colour = test,
+              linetype = module, group = interaction(test, module))) +
     geom_line(linewidth = 0.8) +
     geom_point(size = 2) +
     geom_hline(yintercept = 0.05, linetype = "dotted", colour = "grey40") +
     facet_wrap(~ network) +
     scale_y_continuous(limits = c(0, 1)) +
-    labs(x = "shift of the hub module (standard deviations)",
-         y = "power at alpha = 0.05", colour = NULL) +
+    labs(x = "shift of the module (standard deviations)",
+         y = "power at alpha = 0.05", colour = NULL, linetype = NULL) +
     theme_minimal(base_size = 12) +
     theme(legend.position = "bottom")
 ```
@@ -145,9 +146,13 @@ is "does this module respond", `leviGraphTFCEInference()` or
 `leviGraphClusterInference()` is the right tool, and the landscape is the
 figure that shows *where* it sits.
 
-With only 70 label arrangements the p-value floor is 1/70, so power cannot
-approach one smoothly; it saturates when the observed arrangement is the most
-extreme of the seventy in nearly every replicate.
+With only 70 label arrangements, which come in 35 tied pairs because
+swapping every label negates the statistic, the p-value floor is 2/70, so
+power cannot approach one smoothly; it saturates when the observed
+arrangement is the most extreme of the seventy in nearly every replicate.
+The node-label test on the same data (the logFC of the 4 vs 4 comparison,
+999 label shuffles) answers a different question, whether the shifted
+genes sit together on the map, and is shown as the third curve.
 
 # How much does the layout matter?
 
@@ -234,7 +239,9 @@ about replication.
 
 The eight samples allow the sample-label null. The natural model blocks on
 cell line, because the cell-line effect is large; but blocking leaves only
-2^4 = 16 within-line label swaps and a p-value floor of 0.0625. levi says so:
+2^4 = 16 within-line label swaps, which come in tied pairs (swapping every
+label negates the statistic), so the p-value floor is 2/16 = 0.125. levi
+says so:
 
 ```{r airway-blocked}
 groups <- samples$dex
@@ -286,8 +293,11 @@ wiring. A small p-value here means the responding genes are connected to
 
 ```{r scripts, eval=FALSE}
 scripts <- system.file("scripts", package = "levi")
-# About an hour on four cores; writes inst/extdata/validation/*.csv
-system2("Rscript", c(file.path(scripts, "10-calibration.R"), "4", "300"))
+# Several hours on four cores; writes inst/extdata/validation/*.csv.
+# Arguments: workers, null replicates (sample-label tests), null replicates
+# (node-label test), power replicates per cell, node-label power replicates.
+system2("Rscript", c(file.path(scripts, "10-calibration.R"),
+                     "4", "1000", "100", "100", "20"))
 # A few minutes plus the STRING download; writes inst/extdata/airway/*.tsv
 system2("Rscript", file.path(scripts, "11-airway-preprocess.R"))
 ```

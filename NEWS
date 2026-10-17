@@ -8,6 +8,15 @@ Overview
       now shares every computation with script mode, and adapters bring
       data in from the main Bioconductor and single-cell workflows.
 
+Bug fixes
+    o Pseudobulk preserves grouping labels containing delimiters and gives
+      count columns unique names. Missing grouping labels are rejected.
+    o Calibration includes datasets without regions as non-rejections in
+      error rates and power; saved summaries use the corrected denominators.
+    o Degree-weighting documentation no longer claims unit incident sums.
+    o The Shiny camera observer waits for an actual relayout event before
+      reading Plotly event data, avoiding warnings before 3D is rendered.
+
 Landscape core
     o The landscape is computed as a Gaussian-kernel weighted average
       (normalised convolution) instead of an unweighted mean over the k
@@ -29,8 +38,8 @@ Landscape core
       cost no longer grows with network size.
     o New argument edge_weighting in levi(): "midpoint" (default) keeps
       the historical deposit of one support point per edge midpoint,
-      "degree" weights the midpoint of edge (i, j) by (1/d_i + 1/d_j)/2 so
-      the midpoints around any node add up to one, and "none" smooths the
+      "degree" weights the midpoint of edge (i, j) by (1/d_i + 1/d_j)/2,
+      reducing their influence relative to unit weights, and "none" smooths the
       node values alone. The choice and the weights are recorded in the
       result metadata and reused by the sample-label null.
     o The grid always leaves room for the smoothed silhouette. The margin
@@ -153,12 +162,41 @@ Inference layer
       identical results because all randomness stays in the calling
       process. Sparse adjacency matrices are used throughout (Matrix in
       Imports).
-    o A warning states when a design cannot reach the significance level
-      (fewer than 1/alpha arrangements or draws), e.g. 3 vs 3 unblocked
-      gives a floor of 0.05. Arrangements are counted with choose()
-      before enumeration, so unblocked designs with more than about 30
-      samples no longer abort. Blocks holding a single condition
+    o A warning states when a design cannot reach the significance level.
+      Under exact enumeration of a design balanced within every block,
+      swapping every label negates each statistic and the tests take
+      their maximum over both directions, so arrangements come in tied
+      pairs and the attainable floor is 2/n_possible, not 1/n_possible:
+      3 vs 3 unblocked (20 arrangements) has a floor of 0.10 and four
+      paired donors (16) a floor of 0.125, and both now warn at alpha =
+      0.05. Monte Carlo draws keep the floor 1/(n_perm + 1). The floor
+      is returned as p_floor beside exact and possible_permutations by
+      leviReplicateInference() (in metadata), the graph cluster, TFCE,
+      DESeq2 and single-cell tests; it applies to the joint p-values
+      (PGlobal, PSpatial), while the per-direction POver and PUnder keep
+      1/n_possible. Arrangements are counted with
+      choose() before enumeration, so unblocked designs with more than
+      about 30 samples no longer abort. Blocks holding a single condition
       contribute one fixed arrangement instead of an error.
+    o Global and per-direction p-values of the TFCE and graph-cluster
+      tests count a null maximum within a relative 1e-12 of the observed
+      value as a tie, as the regional test already did. Under exact
+      enumeration the complement arrangement reproduces the observed
+      statistic up to rounding, so these p-values no longer come out as
+      1/n or 2/n depending on BLAS rounding; the joint p-values are now
+      at least 2/n_possible.
+    o leviFromSeurat() states in a message and in its documentation that
+      FindMarkers() output is cell-level and pseudoreplicated for
+      donor-level inference: use it for visualisation and node-label
+      tests, and run donor-level inference through leviPseudobulk() and
+      the single-cell functions.
+    o leviSingleCellRegionalInference() builds the null landscapes with the
+      logfc_k passed through '...', as leviReplicateInference() does. The
+      null used to be computed at logfc_k = 1 whatever the observed
+      landscape used, so with logfc_k < 1 the null was steeper than the
+      observed surface and the landscape PSpatial was conservative (and
+      anti-conservative with logfc_k > 1); results at the default
+      logfc_k = 1 are unchanged.
 
 Data adapters and network construction
     o leviFromDESeq2(), leviFromEdgeR(), leviFromLimma() and
@@ -172,6 +210,15 @@ Data adapters and network construction
       with igraph (fr, kk, lgl, dh or circle) scaled to the range levi
       expects. Both share the same layout routine and report interactions
       dropped for a missing endpoint.
+    o leviFromSTRING() returns one edge per interacting pair. STRING lists
+      every interaction in both directions and the graph from STRINGdb
+      carries two parallel edges per pair, so $edges, the "N edges"
+      message and the layout saw every interaction twice. The landscape
+      core and the graph tests already kept one support point per
+      distinct edge row, and Kamada-Kawai layouts do not depend on edge
+      multiplicity, so results built with layout = "kk" are unchanged;
+      Fruchterman-Reingold layouts of STRING networks move, and edge
+      counts reported from $edges halve.
     o Network parsers live in one place, one per format (dat, dyn, net,
       stg), and are shared by script mode and the interface.
 

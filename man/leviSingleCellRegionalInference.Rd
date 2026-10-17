@@ -64,7 +64,8 @@ the permutations are evaluated. The default runs them serially.}
 
 \item{...}{Landscape arguments passed to [levi()] (for example
 `resolutionValueInput` or `region_threshold`). Do not supply expression,
-network, signal mode, permutation or inference arguments.}
+network, signal mode, permutation or inference arguments. `logfc_k` is
+applied to the observed and to every permuted landscape.}
 }
 \value{
 A list of graph-cluster and two-dimensional landscape regional tests.

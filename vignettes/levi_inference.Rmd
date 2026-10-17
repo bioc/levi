@@ -141,7 +141,9 @@ rep_res$metadata$possible_permutations
 
 With four replicates per group there are `choose(8, 4) = 70` distinct label
 arrangements, so the test enumerated all of them (`permutation_exact` is
-`TRUE`) and the smallest attainable p-value is 1/70.
+`TRUE`). Swapping every label negates the fold changes and the test takes
+its maximum over both directions, so arrangements come in tied pairs and the
+smallest attainable p-value is 2/70 (`metadata$p_floor`).
 
 The same null drives the graph-native tests, which do not need a layout at
 all. `leviGraphTFCEInference()` fits a limma moderated t per gene [@Smyth2004]
@@ -241,8 +243,8 @@ tfce_par <- leviGraphTFCEInference(
 # Reporting checklist
 
 1. Name the null: node labels, sample labels or edges.
-2. Report the number of permutations and whether the enumeration was exact
-   (`exact`, `possible_permutations`).
+2. Report the number of permutations, whether the enumeration was exact and
+   the attainable floor (`exact`, `possible_permutations`, `p_floor`).
 3. For landscape tests, report the network source, the layout algorithm and
    seed, resolution and smoothing. A different layout is a different test.
 4. For sample-label tests, report the blocking structure and the design's

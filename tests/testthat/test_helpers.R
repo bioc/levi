@@ -303,8 +303,11 @@ test_that(".labelPermutations counts large unblocked designs without enumerating
     expect_length(perms$labels, 9L)
     expect_true(all(vapply(perms$labels, function(x)
         sum(x == "Tumor") == 58, logical(1))))
-    # The exact scheme is unchanged for a small design.
-    ex <- levi:::.labelPermutations(rep(c("a", "b"), each = 3), n_perm = 9L)
+    # The exact scheme is unchanged for a small design (3 vs 3 has a floor
+    # of 2/20 = 0.10, so it warns at the default alpha).
+    expect_warning(
+        ex <- levi:::.labelPermutations(rep(c("a", "b"), each = 3), n_perm = 9L),
+        "tied pairs")
     expect_true(ex$exact)
     expect_equal(ex$possible, 20)
     expect_length(ex$labels, 19L)
@@ -313,7 +316,7 @@ test_that(".labelPermutations counts large unblocked designs without enumerating
 # -----------------------------------------------------------------------------
 # edge_weighting: support weights and their effect on the landscape
 # -----------------------------------------------------------------------------
-test_that(".supportWeights: degree weights sum to one around every node", {
+test_that(".supportWeights: inverse-degree midpoint weights reduce hub support", {
     # star: node 1 is the hub, 2..9 are leaves
     ei <- cbind(1L, 2:9)
     w <- levi:::.supportWeights(9L, ei, "degree")

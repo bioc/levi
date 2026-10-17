@@ -482,6 +482,12 @@ test_that("the 3D output is produced when the box is ticked", {
         session$setInputs(action = 1)
 
         expect_false(is.null(output$graph3d))
+        expect_true("plotly_relayout-A" %in% session$userData$plotlyShinyEventIDs)
+        session$setInputs(`plotly_relayout-A` =
+            '{"scene.camera":{"eye":{"x":2,"y":1,"z":3}}}')
+        expect_equal(v$camera3d$eye, list(x = 2L, y = 1L, z = 3L))
+        session$setInputs(`plotly_relayout-A` = '{"scene.aspectratio":{"x":1}}')
+        expect_equal(v$camera3d$eye, list(x = 2L, y = 1L, z = 3L))
     })
 })
 

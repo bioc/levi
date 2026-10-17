@@ -67,10 +67,10 @@ for (mode in modes) {
     say("Type I, sample-label replicate,", mode)
     p_rep <- unlist(bplapply(seq_len(n_rep), function(i) { set.seed(2000 + i)
         replicate_p(sim_expression(), mode) }, BPPARAM = BPPARAM))
-    for (nm in c("node", "rep")) { p <- get(paste0("p_", nm)); f <- mean(p <= alpha, na.rm = TRUE)
+    for (nm in c("node", "rep")) { p <- get(paste0("p_", nm)); f <- mean(!is.na(p) & p <= alpha)
         rows[[length(rows) + 1]] <- data.frame(edge_weighting = mode,
             test = c(node = "node-label regional", rep = "sample-label replicate")[[nm]],
-            replicates = n_rep, fwer = f, fwer_se = sqrt(f * (1 - f) / sum(!is.na(p))), no_region = mean(is.na(p))) }
+            replicates = n_rep, fwer = f, fwer_se = sqrt(f * (1 - f) / length(p)), no_region = mean(is.na(p))) }
 }
 type1 <- do.call(rbind, rows); print(type1)
 write.csv(type1, file.path(out_dir, "degree_weighting_type1.csv"), row.names = FALSE)
@@ -81,7 +81,7 @@ for (effect in c(1, 1.5)) for (mode in modes) {
     p <- unlist(bplapply(seq_len(n_power), function(i) { set.seed(4000 + 100 * effect + i)
         replicate_p(sim_expression(effect = effect, module = module), mode) }, BPPARAM = BPPARAM))
     power_rows[[length(power_rows) + 1]] <- data.frame(edge_weighting = mode, test = "sample-label replicate",
-        module_size = 8, effect = effect, replicates = n_power, power = mean(p <= alpha, na.rm = TRUE))
+        module_size = 8, effect = effect, replicates = n_power, power = mean(!is.na(p) & p <= alpha))
 }
 power <- do.call(rbind, power_rows); print(power)
 write.csv(power, file.path(out_dir, "degree_weighting_power.csv"), row.names = FALSE)

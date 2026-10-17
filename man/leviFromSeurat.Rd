@@ -27,6 +27,12 @@ single-cell RNA-seq data visualization on biological networks.
 Use \code{signal_mode = "logfc"} and
 \code{readExpColumn("Test-Test")}. The output Test column contains
 avg_log2FC; Control contains pct.2 as annotation, not a comparable control.
+
+\code{FindMarkers()} statistics are computed over cells, so they are
+pseudoreplicated for donor-level inference: the result is suitable for
+visualisation and node-label tests, and donor-level inference must go
+through \code{\link{leviPseudobulk}} and the single-cell inference
+functions (\code{\link{leviSingleCellTFCEInference}} and relatives).
 }
 \examples{
 mock_markers <- data.frame(

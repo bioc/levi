@@ -131,7 +131,8 @@ leviSingleCellTFCEInference <- function(counts, donor, cell_type, condition,
     names(tables) <- types
 
     list(results = tables, null_global = null_global, exact = perms$exact,
-         possible_permutations = perms$possible, donors = donors,
+         possible_permutations = perms$possible, p_floor = perms$floor,
+         donors = donors,
          cell_types = types,
          method = if (paired) {
              paste("paired donor-by-condition pseudobulk limma t; graph TFCE;",
@@ -221,7 +222,8 @@ leviSingleCellTopologyInference <- function(single_cell_tfce,
 #' @inheritParams leviGraphTFCEInference
 #' @param ... Landscape arguments passed to [levi()] (for example
 #'   `resolutionValueInput` or `region_threshold`). Do not supply expression,
-#'   network, signal mode, permutation or inference arguments.
+#'   network, signal mode, permutation or inference arguments. `logfc_k` is
+#'   applied to the observed and to every permuted landscape.
 #' @return A list of graph-cluster and two-dimensional landscape regional tests.
 #' @examples
 #' if (requireNamespace("limma", quietly = TRUE)) {
@@ -325,11 +327,13 @@ leviSingleCellRegionalInference <- function(counts, donor, cell_type,
     coord <- rbind(first$node_coordinates,
         (first$node_coordinates[edges[, 1], , drop = FALSE] +
          first$node_coordinates[edges[, 2], , drop = FALSE]) / 2)
+    # The null signal must use the sigmoid steepness of the observed landscape.
+    k <- list(...)[["logfc_k"]] %||% 1
     null_area <- .permutationNull(perms$labels, function(g) {
         per_type <- vapply(types, function(tp) {
             node_lfc <- unname(mean_lfc(expression[[tp]], g)[node_names])
             signal <- .networkSignals(cbind(node_lfc, node_lfc), edges, TRUE,
-                                      "logfc", 1)$signal
+                                      "logfc", k)$signal
             z <- landscape_gauss(coord = coord, SignalOut = signal,
                 signalExp = signal, signalCtrl = signal,
                 resolutionValue = grid$resolution, zoomValue = grid$zoom,
@@ -353,7 +357,7 @@ leviSingleCellRegionalInference <- function(counts, donor, cell_type,
     list(cluster_mass = clusters, landscapes = landscapes,
          null_cluster = null_cluster, null_area = null_area,
          exact = perms$exact, possible_permutations = perms$possible,
-         donors = donors, cell_types = types,
+         p_floor = perms$floor, donors = donors, cell_types = types,
          method = paste("paired pseudobulk; joint within-donor maximum",
                         "across cell types"))
 }
@@ -473,7 +477,7 @@ leviSingleCellInteractionTFCE <- function(counts, donor, cell_type, condition,
     names(tables) <- others
 
     list(results = tables, null_global = null_global, exact = perms$exact,
-         possible_permutations = perms$possible,
+         possible_permutations = perms$possible, p_floor = perms$floor,
          reference_cell_type = reference_cell_type,
          method = paste("pseudobulk limma condition-by-cell-type interaction;",
                         "joint within-donor TFCE maximum"))
