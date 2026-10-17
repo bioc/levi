@@ -1,12 +1,4 @@
-Changes in version 1.99.0
-
-Overview
-
-    o This is the Bioconductor devel version of the rewritten package; it
-      will be released as levi 2.0.0. The landscape core was rebuilt, an
-      inference layer with permutation tests was added, the Shiny interface
-      now shares every computation with script mode, and adapters bring
-      data in from the main Bioconductor and single-cell workflows.
+Changes in version 1.99.4
 
 Bug fixes
     o Pseudobulk preserves grouping labels containing delimiters and gives
@@ -16,6 +8,16 @@ Bug fixes
     o Degree-weighting documentation no longer claims unit incident sums.
     o The Shiny camera observer waits for an actual relayout event before
       reading Plotly event data, avoiding warnings before 3D is rendered.
+
+Changes in version 1.99.0
+
+Overview
+
+    o This is the Bioconductor devel version of the rewritten package; it
+      will be released as levi 2.0.0. The landscape core was rebuilt, an
+      inference layer with permutation tests was added, the Shiny interface
+      now shares every computation with script mode, and adapters bring
+      data in from the main Bioconductor and single-cell workflows.
 
 Landscape core
     o The landscape is computed as a Gaussian-kernel weighted average
