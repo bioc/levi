@@ -188,3 +188,37 @@ test_that("levi() stores network and kernel diagnostics in the metadata", {
     expect_gt(d$sigma_in_edge_lengths, 0)
     expect_true(d$silhouette_fraction > 0 && d$silhouette_fraction <= 1)
 })
+
+test_that("unmeasured nodes carry no weight instead of pulling the surface to neutral", {
+    net <- system.file("extdata", "medusa.dat", package = "levi")
+    genes <- unique(as.character(
+        levi:::.parseNetwork(net, NA, "dat")$nodes[, 1]))
+    set.seed(5)
+    gone <- sample(genes, 10)                    # a third of the 30 nodes
+    expr <- data.frame(ID = setdiff(genes, gone), Test = 4, Control = 1)
+    res <- suppressMessages(levi(expr, "dat", net, geneSymbolInput = "ID",
+        readExpColumn = readExpColumn("Test-Control"),
+        resolutionValueInput = 40, smoothValueInput = 20, .draw = FALSE))
+    z <- res$landscape$z
+    target <- 4 / (4 + 1)                        # the ratio signal of every measured node
+    # Every measured point has the same value, so a weighted average over
+    # measured points alone is that value everywhere. With the old neutral
+    # fill the surface fell towards 0.5 around each missing gene.
+    expect_equal(range(z, na.rm = TRUE), c(target, target), tolerance = 1e-9)
+    w <- res$metadata$support_weights
+    nodes <- res$metadata$nodes$V1
+    expect_true(all(w[match(gone, nodes)] == 0))
+    expect_true(all(w[seq_along(nodes)][!nodes %in% gone] == 1))
+})
+
+test_that("reciprocal edges and self-loops add no extra support in the landscape", {
+    nodes <- data.frame(ID = c("A", "B", "C"), X = c(1, 2, 3), Y = c(1, 3, 1))
+    messy <- data.frame(V1 = c("A", "B", "B", "B"), V2 = c("B", "A", "B", "C"))
+    plain <- data.frame(V1 = c("A", "B"), V2 = c("B", "C"))
+    expr <- data.frame(ID = c("A", "B", "C"), Test = c(9, 2, 1), Control = 1)
+    run <- function(edges) suppressMessages(levi(expr, "stg", nodes, edges,
+        geneSymbolInput = "ID", readExpColumn = readExpColumn("Test-Control"),
+        resolutionValueInput = 20, smoothValueInput = 20, .draw = FALSE))
+    expect_equal(nrow(run(messy)$metadata$edges), 2)
+    expect_identical(run(messy)$landscape, run(plain)$landscape)
+})

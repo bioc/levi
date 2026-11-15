@@ -142,6 +142,11 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
                         match(as.character(edges[, 2]), nodesCoord$V1))
     if (anyNA(edge_index))
         stop("Every edge endpoint must have network coordinates.")
+    # A-B and B-A are the same undirected edge, and a self-loop adds a second
+    # support point on its own node: keep each pair once, as the graph tests do.
+    edge_index <- edge_index[edge_index[, 1] != edge_index[, 2], , drop = FALSE]
+    edge_index <- unique(cbind(pmin(edge_index[, 1], edge_index[, 2]),
+                               pmax(edge_index[, 1], edge_index[, 2])))
     nnodes <- nrow(nodesCoord)
     coord <- rbind(as.matrix(nodesCoord[, 2:3]),
         (as.matrix(nodesCoord[edge_index[, 1], 2:3]) +
@@ -331,6 +336,18 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
         signalCtrl <- signals$control
         numberCoord <- nrow(SignalOut)
 
+        # A node without a measurement carries no information. It used to
+        # enter the average at the neutral value with full weight, which
+        # pulled the surface towards "no change" next to every unmeasured
+        # gene and made a sparsely measured pathway look quieter than it is.
+        # It now has weight zero, and so do the edge midpoints that touch it,
+        # so unmeasured parts of the network drop out of the average and out
+        # of the silhouette instead of reading as neutral. The weights are the
+        # same in every permutation (the permutations keep the unmeasured
+        # positions fixed), so observed and null surfaces share one support.
+        support_weights_k <- .measuredWeights(support_weights, node_values,
+                                              edge_index)
+
         # Landscape by normalised convolution. Each cell value is the average
         # of the signals weighted by a Gaussian kernel, rather than the mean
         # over the k nearest points. Because the sum of the weights appears
@@ -347,7 +364,7 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
             increase        = increase,
             sigma           = sigmaCells,
             occFrac         = occFrac,
-            weights         = support_weights)
+            weights         = support_weights_k)
 
         matrixOut <- matrixFinal$m1
         n <- resolutionValue
@@ -426,7 +443,7 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
                 logfc_k         = logfc_k,
                 regions         = if (inference_unit == "region") regions else NULL,
                 perm_strata     = resolved_strata,
-                weights         = support_weights)
+                weights         = support_weights_k)
             if (inference_unit == "region") {
                 regions <- pvalMatrix
                 pvalMatrix <- NULL
@@ -532,7 +549,7 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
                     node_coordinates = nodeCoordNorm,
                     node_signal = as.numeric(SignalOut[seq_len(nnodes), 1]),
                     edge_weighting = edge_weighting,
-                    support_weights = support_weights,
+                    support_weights = support_weights_k,
                     grid = list(resolution = resolutionValue, zoom = zoomValue,
                                 increase = increase, sigma = sigmaCells, occupancy = occFrac),
                     region_threshold = region_threshold,

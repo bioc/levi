@@ -21,13 +21,15 @@
     )
     coords <- lay_fn(g)
 
-    # Scale to [1, 100] - levi expects positive coordinates. A graph whose
-    # layout collapses on one axis (a single node, or a perfect line) would
-    # divide by zero, so those land in the middle.
+    # Scale to [1, 100] - levi expects positive coordinates. Both axes use the
+    # same factor, the one that fits the longer axis: stretching each axis to
+    # [1, 100] on its own turned a wide layout into a square and distorted
+    # every distance the kernel and the graph tests care about. A graph whose
+    # layout collapses to a point (a single node) lands in the middle.
+    span <- max(apply(coords, 2L, function(v) diff(range(v, na.rm = TRUE))))
     scale_01 <- function(x) {
-        rng <- range(x, na.rm = TRUE)
-        if (diff(rng) == 0) return(rep(50, length(x)))
-        (x - rng[1]) / diff(rng) * 99 + 1
+        if (span == 0) return(rep(50, length(x)))
+        (x - min(x, na.rm = TRUE)) / span * 99 + 1
     }
 
     # A graph built from an edge list always names its vertices, but one built

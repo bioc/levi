@@ -30,6 +30,25 @@ Statistical corrections
       their nulls treat scores as exchangeable over nodes and reject under
       co-expression or degree association without any condition effect.
 
+Behaviour changes (these alter landscapes and regional P-values)
+    o Nodes without a measurement have weight zero in the landscape, and so
+      do the edge midpoints that touch them. They used to enter the average
+      at the neutral value with full weight, which pulled the surface to "no
+      change" around every unmeasured gene. Unmeasured parts of the network
+      now drop out of the average and out of the silhouette; the weights are
+      the same in every permutation, and the result stores them in
+      $metadata$support_weights. The effect grows with the share of missing
+      nodes; a complete expression table gives the same result as before.
+    o Reciprocal edges (A-B and B-A) and self-loops count once in the
+      landscape, as they already did in the graph tests. A network file that
+      lists both directions no longer puts two support points on each edge
+      midpoint.
+    o leviFromEdges() scales both axes of the layout with one factor, so the
+      aspect ratio of the layout is kept. Each axis used to be stretched to
+      [1, 100] on its own, which made every layout square. Landscapes of
+      networks laid out by leviFromEdges() change; shipped files are
+      unaffected.
+
 New options (default behaviour and P-values unchanged)
     o The graph and pseudobulk tests take 'sig_level' (default 0.05) for
       their Significant and GlobalSignificant flags; it also feeds the

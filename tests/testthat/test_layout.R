@@ -187,3 +187,13 @@ test_that("leviFromEdges: survives the awkward shapes of real networks", {
         expect_gt(nrow(out$nodes), 0)
     }
 })
+
+test_that("leviFromEdges: both axes share one scale, so the aspect ratio survives", {
+    path <- data.frame(from = paste0("n", 1:12), to = paste0("n", 2:13))
+    net <- suppressMessages(leviFromEdges(path, layout = "kk"))
+    rx <- diff(range(net$nodes[[2]])); ry <- diff(range(net$nodes[[3]]))
+    expect_equal(max(rx, ry), 99)
+    # A path laid out by Kamada-Kawai is long and thin; stretching each axis
+    # to [1, 100] on its own used to make it square.
+    expect_lt(min(rx, ry), 0.6 * 99)
+})

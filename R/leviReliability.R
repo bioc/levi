@@ -42,6 +42,17 @@
     c(rep(1, n_nodes), w_edges)
 }
 
+# Support weights with weight zero for nodes without a measurement and for the
+# edge midpoints that touch them. If no node was measured the weights stay as
+# they are: the landscape is then uniformly neutral and the caller warns.
+.measuredWeights <- function(weights, node_values, edge_index) {
+    n <- nrow(node_values)
+    measured <- rowSums(is.finite(node_values)) == ncol(node_values)
+    if (!any(measured) || all(measured)) return(weights)
+    edge_measured <- measured[edge_index[, 1]] & measured[edge_index[, 2]]
+    weights * c(as.numeric(measured), as.numeric(edge_measured))
+}
+
 .adjustLandscapePvalues <- function(pvalues, method) {
     # Both directional families are adjusted together, over occupied cells.
     values <- c(pvalues$over, pvalues$under)
