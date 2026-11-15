@@ -128,6 +128,31 @@
 }
 
 # Node-label draws: the same scores in a random order.
+# Node-shuffle null that is never held in memory as a whole. Moran and
+# Getis-Ord produce one statistic per node per draw, so the draws x nodes
+# matrix (and the copies the p-value arithmetic makes of it) cost O(n_perm *
+# n): about 1.4 GB for 10,000 nodes and 4,999 draws. Here the draws are made
+# and evaluated `block` at a time and each block is folded into running
+# counts by `tally(block_matrix, counts)`, so the memory is O(block * n) and
+# n_perm can be raised to resolve small BH-adjusted p-values. The shuffles
+# come from the same sequential calls to sample() as .nodeShuffles(), and
+# the statistics use no random numbers, so the counts equal those of the
+# one-piece computation.
+.blockedNull <- function(x, n_perm, statistic, tally, BPPARAM = SerialParam(),
+                         block = 250L) {
+    n_perm <- .checkNperm(n_perm)
+    counts <- NULL
+    done <- 0L
+    while (done < n_perm) {
+        size <- min(as.integer(block), n_perm - done)
+        draws <- replicate(size, sample(x), simplify = FALSE)
+        counts <- tally(.permutationNull(draws, statistic, BPPARAM = BPPARAM),
+                        counts)
+        done <- done + size
+    }
+    list(counts = counts, n_perm = n_perm)
+}
+
 .nodeShuffles <- function(x, n_perm) {
     replicate(.checkNperm(n_perm), sample(x), simplify = FALSE)
 }

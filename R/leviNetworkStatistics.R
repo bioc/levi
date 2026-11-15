@@ -226,19 +226,20 @@ leviGraphMoran <- function(scores, networkCoordinatesInput,
         drop <- ifelse(position <= take, zs, zp[take])
         c(globalI(a$x[order]), zs * (cumsum(zp)[take] - drop))
     }
-    null <- .permutationNull(.nodeShuffles(seq_len(n), n_perm), statistic,
-                             BPPARAM = BPPARAM)
-
     # Two-sided p-values centred on the null expectations: E[I] = -1/(n - 1)
     # for the global statistic and E[I_i] = -k_i z_i^2 / (n - 1) for node i
     # under the conditional permutation.
     expected <- c(-1 / (n - 1), -degree * zs^2 / (n - 1))
-    dev_null <- abs(null - rep(expected, each = nrow(null)))
     dev_obs <- abs(observed - expected)
-    tolerance <- 1e-12 * pmax(1, dev_obs)
-    p <- (1 + colSums(dev_null >= rep(dev_obs - tolerance,
-                                      each = nrow(null)))) /
-        (nrow(null) + 1)
+    threshold <- dev_obs - 1e-12 * pmax(1, dev_obs)
+    tally <- function(block, counts) {
+        hit <- colSums(abs(block - rep(expected, each = nrow(block))) >=
+                       rep(threshold, each = nrow(block)))
+        if (is.null(counts)) hit else counts + hit
+    }
+    null <- .blockedNull(seq_len(n), n_perm, statistic, tally,
+                         BPPARAM = BPPARAM)
+    p <- (1 + null$counts) / (null$n_perm + 1)
 
     neighbour_mean <- ifelse(degree > 0, as.numeric(W %*% a$x) / degree, NA)
     centre <- mean(a$x)
@@ -304,12 +305,16 @@ leviGraphGetisOrd <- function(scores, networkCoordinatesInput,
         gi
     }
     observed <- statistic(a$x)
-    null <- .permutationNull(.nodeShuffles(a$x, n_perm), statistic,
-                             BPPARAM = BPPARAM)
-
-    obs_rows <- rep(observed, each = nrow(null))
-    p_over  <- (1 + colSums(null >= obs_rows, na.rm = TRUE)) / (nrow(null) + 1)
-    p_under <- (1 + colSums(null <= obs_rows, na.rm = TRUE)) / (nrow(null) + 1)
+    tally <- function(block, counts) {
+        obs_rows <- rep(observed, each = nrow(block))
+        over <- colSums(block >= obs_rows, na.rm = TRUE)
+        under <- colSums(block <= obs_rows, na.rm = TRUE)
+        if (is.null(counts)) list(over = over, under = under) else
+            list(over = counts$over + over, under = counts$under + under)
+    }
+    null <- .blockedNull(a$x, n_perm, statistic, tally, BPPARAM = BPPARAM)
+    p_over  <- (1 + null$counts$over) / (null$n_perm + 1)
+    p_under <- (1 + null$counts$under) / (null$n_perm + 1)
     p_over[!is.finite(observed)] <- NA_real_
     p_under[!is.finite(observed)] <- NA_real_
 

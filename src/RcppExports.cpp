@@ -15,7 +15,6 @@ List landscape_gauss(NumericMatrix coord, NumericMatrix SignalOut, NumericMatrix
 RcppExport SEXP _levi_landscape_gauss(SEXP coordSEXP, SEXP SignalOutSEXP, SEXP signalExpSEXP, SEXP signalCtrlSEXP, SEXP resolutionValueSEXP, SEXP zoomValueSEXP, SEXP increaseSEXP, SEXP sigmaSEXP, SEXP occFracSEXP, SEXP weightsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericMatrix >::type coord(coordSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type SignalOut(SignalOutSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type signalExp(signalExpSEXP);
@@ -35,7 +34,6 @@ NumericMatrix landscape_occupancy(NumericMatrix coord, int resolutionValue, doub
 RcppExport SEXP _levi_landscape_occupancy(SEXP coordSEXP, SEXP resolutionValueSEXP, SEXP zoomValueSEXP, SEXP increaseSEXP, SEXP sigmaSEXP, SEXP occFracSEXP, SEXP weightsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericMatrix >::type coord(coordSEXP);
     Rcpp::traits::input_parameter< int >::type resolutionValue(resolutionValueSEXP);
     Rcpp::traits::input_parameter< double >::type zoomValue(zoomValueSEXP);
@@ -52,7 +50,6 @@ NumericMatrix landscape_m1(NumericMatrix coord, NumericVector signal, NumericMat
 RcppExport SEXP _levi_landscape_m1(SEXP coordSEXP, SEXP signalSEXP, SEXP occupancySEXP, SEXP resolutionValueSEXP, SEXP zoomValueSEXP, SEXP increaseSEXP, SEXP sigmaSEXP, SEXP weightsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericMatrix >::type coord(coordSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type signal(signalSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type occupancy(occupancySEXP);
@@ -70,7 +67,6 @@ IntegerMatrix nearest_node_grid(NumericMatrix coordNodes, int resolutionValue, d
 RcppExport SEXP _levi_nearest_node_grid(SEXP coordNodesSEXP, SEXP resolutionValueSEXP, SEXP zoomValueSEXP, SEXP increaseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericMatrix >::type coordNodes(coordNodesSEXP);
     Rcpp::traits::input_parameter< int >::type resolutionValue(resolutionValueSEXP);
     Rcpp::traits::input_parameter< double >::type zoomValue(zoomValueSEXP);
@@ -79,12 +75,24 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// max_region_mass
+NumericVector max_region_mass(NumericMatrix z, double threshold, int min_cells, double increase);
+RcppExport SEXP _levi_max_region_mass(SEXP zSEXP, SEXP thresholdSEXP, SEXP min_cellsSEXP, SEXP increaseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type z(zSEXP);
+    Rcpp::traits::input_parameter< double >::type threshold(thresholdSEXP);
+    Rcpp::traits::input_parameter< int >::type min_cells(min_cellsSEXP);
+    Rcpp::traits::input_parameter< double >::type increase(increaseSEXP);
+    rcpp_result_gen = Rcpp::wrap(max_region_mass(z, threshold, min_cells, increase));
+    return rcpp_result_gen;
+END_RCPP
+}
 // tfce_side
 NumericVector tfce_side(NumericVector v, IntegerMatrix edges, double E, double H, int n_steps);
 RcppExport SEXP _levi_tfce_side(SEXP vSEXP, SEXP edgesSEXP, SEXP ESEXP, SEXP HSEXP, SEXP n_stepsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type v(vSEXP);
     Rcpp::traits::input_parameter< IntegerMatrix >::type edges(edgesSEXP);
     Rcpp::traits::input_parameter< double >::type E(ESEXP);
@@ -100,6 +108,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_levi_landscape_occupancy", (DL_FUNC) &_levi_landscape_occupancy, 7},
     {"_levi_landscape_m1", (DL_FUNC) &_levi_landscape_m1, 8},
     {"_levi_nearest_node_grid", (DL_FUNC) &_levi_nearest_node_grid, 4},
+    {"_levi_max_region_mass", (DL_FUNC) &_levi_max_region_mass, 4},
     {"_levi_tfce_side", (DL_FUNC) &_levi_tfce_side, 5},
     {NULL, NULL, 0}
 };

@@ -21,7 +21,7 @@ static int uf_find(std::vector<int>& parent, int a) {
 
 // v: non-negative statistic per node (NA and negative values are never
 // active); edges: m x 2 matrix of 0-based node indices.
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 NumericVector tfce_side(NumericVector v, IntegerMatrix edges, double E,
                         double H, int n_steps) {
     const int n = v.size();

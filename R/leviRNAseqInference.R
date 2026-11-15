@@ -82,13 +82,23 @@ leviBulkGraphInference <- function(counts, groups, networkCoordinatesInput,
     edge_index <- edge_index[stats::complete.cases(edge_index), , drop = FALSE]
     sample_names <- colnames(counts) %||% paste0("sample", seq_len(ncol(counts)))
     colnames(counts) <- sample_names
+    # Median-of-ratios size factors use the counts only, not the labels or
+    # the design, so they are estimated once and set on every permuted
+    # object; DESeq() then skips its own estimation and the values are
+    # identical to re-estimating them.
+    size_factors <- DESeq2::sizeFactors(DESeq2::estimateSizeFactors(
+        DESeq2::DESeqDataSetFromMatrix(
+            countData = counts,
+            colData = data.frame(row.names = sample_names), design = ~ 1)))
     make_dds <- function(g) {
         coldata <- data.frame(
             group = factor(g, levels = c(control, test)),
             block = factor(blocks), row.names = sample_names)
-        DESeq2::DESeqDataSetFromMatrix(
+        dds <- DESeq2::DESeqDataSetFromMatrix(
             countData = counts, colData = coldata,
             design = if (has_blocks) ~ block + group else ~ group)
+        DESeq2::sizeFactors(dds) <- size_factors
+        dds
     }
     # Two dispersion estimators. "trend" is the standard DESeq() pipeline;
     # "genewise" skips the parametric trend fit, which small pilot studies
@@ -106,9 +116,19 @@ leviBulkGraphInference <- function(counts, groups, networkCoordinatesInput,
         DESeq2::dispersions(dds) <- S4Vectors::mcols(dds)$dispGeneEst
         DESeq2::nbinomWaldTest(dds, quiet = TRUE)
     }
+    # The Wald statistic of the group coefficient, read from the fitted
+    # model. results() would add the independent-filtering and Cook's
+    # machinery that the null draws never use; the ratio is the same.
     wald_of <- function(dds) {
-        r <- DESeq2::results(dds, contrast = c("group", test, control))
-        setNames(as.numeric(r$log2FoldChange / r$lfcSE), rownames(r))
+        beta <- stats::coef(dds)
+        se <- stats::coef(dds, SE = TRUE)
+        # The group term is last in both designs (~ group, ~ block + group).
+        # DESeq2 names the SE columns "SE_<coefficient>", so index by position.
+        k <- ncol(beta)
+        if (!startsWith(colnames(beta)[k], "group") || ncol(se) != k)
+            stop("Unexpected DESeq2 coefficient '", colnames(beta)[k], "'.",
+                 call. = FALSE)
+        setNames(as.numeric(beta[, k] / se[, k]), rownames(beta))
     }
     # The estimator is chosen on the observed data. The same estimator must
     # produce every null draw; mixing the two would compare values on
@@ -124,7 +144,8 @@ leviBulkGraphInference <- function(counts, groups, networkCoordinatesInput,
     # estimates depend on the observed labels, so the permuted statistic is
     # not drawn from the same orbit and the level is not guaranteed.
     permuted_fit <- function(g, fit) {
-        if (refit_dispersions) return(fit_dds(make_dds(g), fit$estimator))
+        if (refit_dispersions)
+            return(suppressMessages(fit_dds(make_dds(g), fit$estimator)))
         dds <- make_dds(g)
         DESeq2::sizeFactors(dds) <- DESeq2::sizeFactors(fit$dds)
         DESeq2::dispersions(dds) <- DESeq2::dispersions(fit$dds)

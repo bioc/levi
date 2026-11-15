@@ -42,6 +42,17 @@ Performance (results unchanged)
       landscape_gauss(). levi() with n_perm = 200 on the 30-node medusa
       network at resolution 100 went from 46 s to 8 s with identical
       p-values and the same random-number stream.
+    o The maximum regional mass of every null draw is found in C++
+      (src/region_mass.cpp; the R version stays as .maximumRegionMassR()).
+    o leviBulkGraphInference() estimates the size factors once, reads the
+      Wald statistic from the fitted coefficients and silences DESeq2's
+      per-permutation messages: about 20% faster with identical statistics
+      and p-values.
+    o leviGraphMoran() and leviGraphGetisOrd() fold the null into running
+      counts in blocks of 250 draws instead of keeping a draws x nodes
+      matrix, so memory no longer grows with n_perm (identical P-values).
+    o The C++ entry points skip the random-number scope, and the shared
+      library registers its routines (useDynLib(levi, .registration = TRUE)).
     o tests/testthat/test_characterization.R compares the landscape and
       regional results of levi() on the hub and medusa networks with stored
       values (tolerance 1e-8).

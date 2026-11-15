@@ -104,7 +104,7 @@ static inline void splat(std::vector<double>& num, std::vector<double>* den,
 //'   (relative network occupancy), all of them resolutionValue x
 //'   resolutionValue matrices.
 //' @keywords internal
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 List landscape_gauss(NumericMatrix coord,
                      NumericMatrix SignalOut,
                      NumericMatrix signalExp,
@@ -219,7 +219,7 @@ static std::vector<double> makeKernel(double& sigma, int res, int& r)
 //' @return Resolution x resolution matrix with the smoothed occupancy where it
 //'   exceeds the silhouette threshold and NA elsewhere.
 //' @keywords internal
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 NumericMatrix landscape_occupancy(NumericMatrix coord,
                                   int resolutionValue,
                                   double zoomValue,
@@ -272,7 +272,7 @@ NumericMatrix landscape_occupancy(NumericMatrix coord,
 //'   coordinates, grid, sigma and weights.
 //' @return Resolution x resolution matrix; NA outside the silhouette.
 //' @keywords internal
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 NumericMatrix landscape_m1(NumericMatrix coord,
                            NumericVector signal,
                            NumericMatrix occupancy,
@@ -330,7 +330,7 @@ NumericMatrix landscape_m1(NumericMatrix coord,
 //' @return Integer matrix resolutionValue x resolutionValue with the
 //'   (1-based) index of the node nearest to each cell.
 //' @keywords internal
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 IntegerMatrix nearest_node_grid(NumericMatrix coordNodes,
                                 int resolutionValue,
                                 double zoomValue,

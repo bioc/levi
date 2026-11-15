@@ -22,7 +22,7 @@
 #'   resolutionValue matrices.
 #' @keywords internal
 landscape_gauss <- function(coord, SignalOut, signalExp, signalCtrl, resolutionValue, zoomValue, increase, sigma, occFrac, weights = numeric(0)) {
-    .Call('_levi_landscape_gauss', PACKAGE = 'levi', coord, SignalOut, signalExp, signalCtrl, resolutionValue, zoomValue, increase, sigma, occFrac, weights)
+    .Call(`_levi_landscape_gauss`, coord, SignalOut, signalExp, signalCtrl, resolutionValue, zoomValue, increase, sigma, occFrac, weights)
 }
 
 #' Smoothed occupancy of the network, for repeated one-channel landscapes
@@ -36,7 +36,7 @@ landscape_gauss <- function(coord, SignalOut, signalExp, signalCtrl, resolutionV
 #'   exceeds the silhouette threshold and NA elsewhere.
 #' @keywords internal
 landscape_occupancy <- function(coord, resolutionValue, zoomValue, increase, sigma, occFrac, weights = numeric(0)) {
-    .Call('_levi_landscape_occupancy', PACKAGE = 'levi', coord, resolutionValue, zoomValue, increase, sigma, occFrac, weights)
+    .Call(`_levi_landscape_occupancy`, coord, resolutionValue, zoomValue, increase, sigma, occFrac, weights)
 }
 
 #' Combined-signal landscape with a precomputed occupancy
@@ -51,7 +51,7 @@ landscape_occupancy <- function(coord, resolutionValue, zoomValue, increase, sig
 #' @return Resolution x resolution matrix; NA outside the silhouette.
 #' @keywords internal
 landscape_m1 <- function(coord, signal, occupancy, resolutionValue, zoomValue, increase, sigma, weights = numeric(0)) {
-    .Call('_levi_landscape_m1', PACKAGE = 'levi', coord, signal, occupancy, resolutionValue, zoomValue, increase, sigma, weights)
+    .Call(`_levi_landscape_m1`, coord, signal, occupancy, resolutionValue, zoomValue, increase, sigma, weights)
 }
 
 #' Index of the node nearest to each grid cell
@@ -68,10 +68,22 @@ landscape_m1 <- function(coord, signal, occupancy, resolutionValue, zoomValue, i
 #'   (1-based) index of the node nearest to each cell.
 #' @keywords internal
 nearest_node_grid <- function(coordNodes, resolutionValue, zoomValue, increase) {
-    .Call('_levi_nearest_node_grid', PACKAGE = 'levi', coordNodes, resolutionValue, zoomValue, increase)
+    .Call(`_levi_nearest_node_grid`, coordNodes, resolutionValue, zoomValue, increase)
+}
+
+#' Maximum regional excess mass in both directions
+#'
+#' @param z landscape matrix, NA outside the silhouette.
+#' @param threshold distance from the neutral value 0.5 a cell must exceed.
+#' @param min_cells minimum number of cells of a region.
+#' @param increase grid step, in coordinate units.
+#' @return Numeric vector c(over, under).
+#' @keywords internal
+max_region_mass <- function(z, threshold, min_cells, increase) {
+    .Call(`_levi_max_region_mass`, z, threshold, min_cells, increase)
 }
 
 tfce_side <- function(v, edges, E, H, n_steps) {
-    .Call('_levi_tfce_side', PACKAGE = 'levi', v, edges, E, H, n_steps)
+    .Call(`_levi_tfce_side`, v, edges, E, H, n_steps)
 }
 

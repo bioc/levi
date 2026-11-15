@@ -1,6 +1,6 @@
 #' @title levi
 #' @importFrom Rcpp evalCpp
-#' @useDynLib levi
+#' @useDynLib levi, .registration = TRUE
 #' @description This is the Levi script mode. It allows you to create the
 #' integration of networks and gene expression levels as batch
 #' processing

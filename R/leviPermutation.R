@@ -80,9 +80,16 @@
     )
 }
 
-# Same eight-connectivity and excess mass as .extractLandscapeRegions, using
-# igraph's compiled component search; null draws need no cell/centroid tables.
+# Same eight-connectivity and excess mass as .extractLandscapeRegions; null
+# draws need no cell/centroid tables. Components are found in C++
+# (src/region_mass.cpp); .maximumRegionMassR() below is the R reference.
 .maximumRegionMass <- function(z, increase, threshold, min_cells) {
+    max_region_mass(z, threshold, as.integer(min_cells), increase)
+}
+
+# Reference implementation of .maximumRegionMass() in R (igraph components);
+# the tests compare it with the C++ version.
+.maximumRegionMassR <- function(z, increase, threshold, min_cells) {
     vapply(c("over", "under"), function(side) {
         excess <- if (side == "over") z - .5 - threshold else .5 - z - threshold
         mask <- is.finite(z) & if (side == "over") z >= .5 + threshold else
