@@ -161,8 +161,8 @@ Bug fixes
     o Graph tests stop with an informative error for unnamed scores, fewer
       than three matched nodes, an invalid n_perm or an unknown
       fileTypeInput (case is now ignored). In the graph tests (TFCE, Moran,
-      Getis-Ord, rewiring) reciprocal edges (A-B and B-A) are counted once;
-      the landscape computed by levi() still counts them separately.
+      Getis-Ord, rewiring) reciprocal edges (A-B and B-A) are counted once,
+      and so they are in the landscape (see Behaviour changes).
     o leviEnrich(), leviRegionGenes() and leviDiff() explain how to pick one
       result when given the list that levi() returns for several
       comparisons. print() of a result no longer fails when both regional
