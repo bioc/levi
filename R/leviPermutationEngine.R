@@ -153,8 +153,61 @@
     list(counts = counts, n_perm = n_perm)
 }
 
-.nodeShuffles <- function(x, n_perm) {
-    replicate(.checkNperm(n_perm), sample(x), simplify = FALSE)
+.nodeShuffles <- function(x, n_perm, strata = NULL) {
+    if (is.null(strata))
+        return(replicate(.checkNperm(n_perm), sample(x), simplify = FALSE))
+    groups <- split(seq_along(x), strata)
+    replicate(.checkNperm(n_perm), {
+        out <- x
+        for (idx in groups) if (length(idx) > 1L) out[idx] <- x[idx][sample.int(length(idx))]
+        out
+    }, simplify = FALSE)
+}
+
+# Exchangeability strata for a node-label null. NULL keeps the plain
+# permutation; "degree" bins the nodes by degree (quantile bins, at most
+# n_bins, merged when degrees tie); otherwise a vector named by node or one
+# value per node. Permuting within strata keeps each node's score among nodes
+# of similar degree, which removes the part of the dependence of the score on
+# degree that the bins resolve. It is an approximation: the null stays
+# conditional on the layout and still treats the scores of nodes in a
+# stratum as exchangeable.
+.resolveStrata <- function(strata, node_names, degree, n_bins = 5L) {
+    if (is.null(strata)) return(NULL)
+    if (identical(strata, "degree")) {
+        cuts <- unique(stats::quantile(degree, seq(0, 1, length.out = n_bins + 1L),
+                                       type = 1L))
+        return(as.character(cut(degree, breaks = unique(c(-Inf, cuts[-1L])),
+                                labels = FALSE)))
+    }
+    if (!is.atomic(strata))
+        stop("'strata' must be NULL, \"degree\", or an atomic vector.", call. = FALSE)
+    out <- if (!is.null(names(strata))) strata[node_names] else strata
+    if (length(out) != length(node_names) || anyNA(out))
+        stop("'strata' needs one value per scored node (a named vector must ",
+             "cover every scored node).", call. = FALSE)
+    as.character(out)
+}
+
+# Scores that track degree make the node-label null reject without any
+# structure beyond the degree sequence. Warn when the rank correlation of the
+# score with log degree exceeds 0.1 in absolute value and is significant at
+# 0.01 (a threshold on the coefficient alone fires at random in small
+# networks), and no strata were requested.
+.warnDegreeAssociation <- function(x, degree, what) {
+    if (length(unique(degree)) < 2L || length(unique(x)) < 2L) return(invisible(FALSE))
+    test <- suppressWarnings(stats::cor.test(x, log1p(degree), method = "spearman",
+                                             exact = FALSE))
+    r <- unname(test$estimate)
+    if (is.finite(r) && abs(r) > 0.1 && test$p.value < 0.01)
+        warning(structure(class = c("levi_degree_warning", "warning", "condition"),
+            list(message = sprintf(paste0(
+                "%s: the scores are correlated with log degree (Spearman %.2f). ",
+                "The node-label null ignores degree, so a small P-value may ",
+                "reflect that association and not the arrangement of the ",
+                "scores. Use strata = \"degree\" to permute within degree bins."),
+                what, r), call = NULL)))
+    invisible(TRUE)
 }
 
 # Degree-preserving rewiring draws: one edge index matrix per null network.

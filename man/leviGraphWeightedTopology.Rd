@@ -12,6 +12,7 @@ leviGraphWeightedTopology(
   fileTypeInput = "stg",
   n_perm = 999L,
   seed = NULL,
+  strata = NULL,
   BPPARAM = SerialParam()
 )
 }
@@ -31,6 +32,14 @@ name or index of the column in `networkInteractionsInput` holding them
 \item{n_perm}{Number of node-label permutations used to build the null.}
 
 \item{seed}{Optional RNG seed.}
+
+\item{strata}{Exchangeability strata for the node-label permutation: `NULL`
+(default, all nodes exchangeable), `"degree"` (permute within five
+degree bins) or a vector of one value per node, named by gene. Stratifying
+by degree approximately removes the part of the association between a
+score and degree that the bins resolve; it does not make the null a test of
+the response to a condition. Without strata the function warns
+(`levi_degree_warning`) when the scores correlate with log degree.}
 
 \item{BPPARAM}{A [BiocParallel::BiocParallelParam] object controlling how
 the permutations are evaluated. The default runs them serially.}

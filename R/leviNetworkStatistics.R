@@ -246,6 +246,7 @@ leviGraphMoran <- function(scores, networkCoordinatesInput,
                          BPPARAM = BPPARAM)
     p <- (1 + null$counts) / (null$n_perm + 1)
     .warnResolution(null$n_perm, n, 0.05, "leviGraphMoran() local P-values")
+    .warnDegreeAssociation(a$x, degree, "leviGraphMoran()")
 
     neighbour_mean <- ifelse(degree > 0, as.numeric(W %*% a$x) / degree, NA)
     centre <- mean(a$x)
@@ -365,6 +366,7 @@ leviGraphGetisOrd <- function(scores, networkCoordinatesInput,
     p_adjusted <- stats::p.adjust(p_two_sided, "BH")
     .warnResolution(null$n_perm, sum(is.finite(observed)), sig_level,
                     "leviGraphGetisOrd() P-values")
+    .warnDegreeAssociation(a$x, wi - 1, "leviGraphGetisOrd()")
 
     out <- data.frame(Gene = a$nodes, GiStar = observed, POver = p_over,
                PUnder = p_under, PTwoSided = p_two_sided,
@@ -402,6 +404,13 @@ leviGraphGetisOrd <- function(scores, networkCoordinatesInput,
 #' ([leviGraphTFCEInference()], [leviGraphClusterInference()]) to ask whether
 #' the condition changed a region of the network.
 #' @inheritParams leviGraphMoran
+#' @param strata Exchangeability strata for the node-label permutation: `NULL`
+#'   (default, all nodes exchangeable), `"degree"` (permute within five
+#'   degree bins) or a vector of one value per node, named by gene. Stratifying
+#'   by degree approximately removes the part of the association between a
+#'   score and degree that the bins resolve; it does not make the null a test of
+#'   the response to a condition. Without strata the function warns
+#'   (`levi_degree_warning`) when the scores correlate with log degree.
 #' @param networkCoordinatesInput,networkInteractionsInput,fileTypeInput LEVI
 #'   network inputs. `networkInteractionsInput` must be supplied because the
 #'   edge weights are read from its rows.
@@ -418,7 +427,7 @@ leviGraphGetisOrd <- function(scores, networkCoordinatesInput,
 #' @export
 leviGraphWeightedTopology <- function(scores, networkCoordinatesInput,
     networkInteractionsInput, edge_weights = 3L, fileTypeInput = "stg",
-    n_perm = 999L, seed = NULL, BPPARAM = SerialParam()) {
+    n_perm = 999L, seed = NULL, strata = NULL, BPPARAM = SerialParam()) {
     if (!is.null(seed)) withr::local_seed(seed)
     p <- .parseNetwork(networkCoordinatesInput, networkInteractionsInput,
                        fileTypeInput)
@@ -457,7 +466,11 @@ leviGraphWeightedTopology <- function(scores, networkCoordinatesInput,
           LaplacianEnergy = .quadraticForm(z, L))
     }
     observed <- statistic(x)
-    null <- .permutationNull(.nodeShuffles(x, n_perm), statistic,
+    degree <- as.numeric(Matrix::rowSums(W > 0))
+    if (is.null(strata))
+        .warnDegreeAssociation(x, degree, "leviGraphWeightedTopology()")
+    groups <- .resolveStrata(strata, nodes, degree)
+    null <- .permutationNull(.nodeShuffles(x, n_perm, groups), statistic,
                              BPPARAM = BPPARAM,
                              names = c("MoranI", "LaplacianEnergy"))
 
@@ -493,8 +506,13 @@ leviGraphWeightedTopology <- function(scores, networkCoordinatesInput,
 #' ([leviGraphTFCEInference()], [leviGraphClusterInference()]) to ask whether
 #' the condition changed a region of the network.
 #' @inheritParams leviGraphMoran
-#' @return A one-row data frame of Laplacian energy, low-frequency energy ratio
-#'   and node-label permutation P-values.
+#' @inheritParams leviGraphWeightedTopology
+#' @return A one-row data frame of Laplacian energy, low-frequency energy ratio,
+#'   degree-normalised energy and node-label permutation P-values. The plain
+#'   `EnergyP` is the same test as Geary's C, because the sum of squared scores
+#'   does not change when the scores are permuted; `DegreeNormalisedEnergy`
+#'   (the Rayleigh quotient of the normalised Laplacian) does depend on degree
+#'   and is the one to read when degree varies. `Null` names the permutation.
 #' @examples
 #' network <- data.frame(ID = c("A", "B", "C"), X = 1:3, Y = 1:3)
 #' edges <- data.frame(V1 = c("A", "B"), V2 = c("B", "C"))
@@ -503,7 +521,7 @@ leviGraphWeightedTopology <- function(scores, networkCoordinatesInput,
 #' @export
 leviGraphSpectrum <- function(scores, networkCoordinatesInput,
     networkInteractionsInput = NA, fileTypeInput = "dat", n_perm = 999L,
-    seed = NULL, BPPARAM = SerialParam()) {
+    seed = NULL, strata = NULL, BPPARAM = SerialParam()) {
     if (!is.null(seed)) withr::local_seed(seed)
     a <- .alignedGraph(scores, networkCoordinatesInput,
                        networkInteractionsInput, fileTypeInput)
@@ -518,21 +536,45 @@ leviGraphSpectrum <- function(scores, networkCoordinatesInput,
     n_low <- max(1, floor(n / 4) + 1)
     basis <- .lowFrequencyBasis(L, n_low)
 
+    # Degree-normalised energy: the Rayleigh quotient of the normalised
+    # Laplacian, x'Lx / sum(d x^2) with x centred on its degree-weighted mean.
+    # The plain energy x'Lx divided by sum(x^2) is a monotone function of
+    # Geary's C and, since sum(x^2) does not change when the scores are
+    # permuted, gives exactly the same test as the unnormalised energy; the
+    # degree weights make the denominator move with the permutation, so this
+    # statistic is not a repackaging of it.
+    degree <- as.numeric(Matrix::rowSums(W))
+    connected <- degree > 0
+    normalised <- function(x) {
+        xc <- x[connected] - sum(degree[connected] * x[connected]) /
+            sum(degree[connected])
+        .quadraticForm(xc, L[connected, connected, drop = FALSE]) /
+            sum(degree[connected] * xc^2)
+    }
+
     statistic <- function(x) {
         coefficients <- crossprod(basis, x)
         c(energy = .quadraticForm(x, L),
-          low_frequency = sum(coefficients^2) / sum(x^2))
+          low_frequency = sum(coefficients^2) / sum(x^2),
+          normalised = normalised(x))
     }
     observed <- statistic(a$x)
-    null <- .permutationNull(.nodeShuffles(a$x, n_perm), statistic,
+    if (is.null(strata))
+        .warnDegreeAssociation(a$x, degree, "leviGraphSpectrum()")
+    groups <- .resolveStrata(strata, a$nodes, degree)
+    null <- .permutationNull(.nodeShuffles(a$x, n_perm, groups), statistic,
                              BPPARAM = BPPARAM,
-                             names = c("energy", "low_frequency"))
+                             names = c("energy", "low_frequency", "normalised"))
 
     data.frame(
         LaplacianEnergy = observed[1],
         EnergyP = (1 + sum(null[, 1] <= observed[1])) / (nrow(null) + 1),
         LowFrequency = observed[2],
-        LowFrequencyP = (1 + sum(null[, 2] >= observed[2])) / (nrow(null) + 1))
+        LowFrequencyP = (1 + sum(null[, 2] >= observed[2])) / (nrow(null) + 1),
+        DegreeNormalisedEnergy = observed[3],
+        DegreeNormalisedEnergyP = (1 + sum(null[, 3] <= observed[3])) /
+            (nrow(null) + 1),
+        Null = if (is.null(strata)) "node_label_total" else "node_label_stratified")
 }
 
 # -- Degree-preserving rewiring nulls -----------------------------------------

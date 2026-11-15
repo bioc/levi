@@ -60,6 +60,17 @@ New options (default behaviour and P-values unchanged)
       scale, and the same field is used by the node-label and sample-label
       tests. The default, "excess", is unchanged; the displayed landscape is
       the same either way.
+    o leviGraphSpectrum() and leviGraphWeightedTopology() take 'strata'
+      (NULL, "degree" or one value per node) to permute scores within groups
+      of nodes, for example degree bins, as an approximation to removing the
+      dependence of the score on degree. leviGraphMoran(),
+      leviGraphGetisOrd(), leviGraphSpectrum() and leviGraphWeightedTopology()
+      warn (class "levi_degree_warning") when the scores correlate with log
+      degree.
+    o leviGraphSpectrum() adds DegreeNormalisedEnergy and its P-value, the
+      Rayleigh quotient of the normalised Laplacian. The plain EnergyP is the
+      same test as Geary's C (the sum of squared scores does not change
+      under permutation); the degree-normalised version is not.
     o levi(bandwidth_edges = ) sets the kernel width as a multiple of the
       median edge length, independent of the network and of the zoom;
       smoothValueInput is ignored when it is given. The default keeps the

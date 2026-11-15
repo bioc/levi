@@ -11,6 +11,7 @@ leviGraphSpectrum(
   fileTypeInput = "dat",
   n_perm = 999L,
   seed = NULL,
+  strata = NULL,
   BPPARAM = SerialParam()
 )
 }
@@ -27,12 +28,24 @@ accepted by [levi()].}
 
 \item{seed}{Optional RNG seed.}
 
+\item{strata}{Exchangeability strata for the node-label permutation: `NULL`
+(default, all nodes exchangeable), `"degree"` (permute within five
+degree bins) or a vector of one value per node, named by gene. Stratifying
+by degree approximately removes the part of the association between a
+score and degree that the bins resolve; it does not make the null a test of
+the response to a condition. Without strata the function warns
+(`levi_degree_warning`) when the scores correlate with log degree.}
+
 \item{BPPARAM}{A [BiocParallel::BiocParallelParam] object controlling how
 the permutations are evaluated. The default runs them serially.}
 }
 \value{
-A one-row data frame of Laplacian energy, low-frequency energy ratio
-  and node-label permutation P-values.
+A one-row data frame of Laplacian energy, low-frequency energy ratio,
+  degree-normalised energy and node-label permutation P-values. The plain
+  `EnergyP` is the same test as Geary's C, because the sum of squared scores
+  does not change when the scores are permuted; `DegreeNormalisedEnergy`
+  (the Rayleigh quotient of the normalised Laplacian) does depend on degree
+  and is the one to read when degree varies. `Null` names the permutation.
 }
 \description{
 Measures how smoothly gene scores vary over the biological network through

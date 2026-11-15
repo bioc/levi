@@ -362,3 +362,51 @@ test_that("test and control from the label order warn and are stored", {
     expect_equal(out$test, "T")
     expect_equal(out$control, "C")
 })
+
+# --- Degree strata and degree-normalised energy ------------------------------
+
+star_plus_net <- function() {
+    # a hub of degree 12 joined to a ring of 20 nodes: very unequal degrees
+    nodes <- data.frame(ID = paste0("g", 1:33), X = rnorm(33), Y = rnorm(33))
+    ring <- cbind(paste0("g", 1:20), paste0("g", c(2:20, 1)))
+    hub <- cbind("g21", paste0("g", 1:12))
+    chain <- cbind(paste0("g", 21:32), paste0("g", 22:33))
+    list(nodes = nodes, edges = data.frame(V1 = c(ring[, 1], hub[, 1], chain[, 1]),
+                                           V2 = c(ring[, 2], hub[, 2], chain[, 2])))
+}
+
+test_that("Spectrum reports a degree-normalised energy, and the old columns are unchanged", {
+    set.seed(1)
+    net <- star_plus_net()
+    x <- stats::setNames(rnorm(33), net$nodes$ID)
+    out <- suppressWarnings(leviGraphSpectrum(x, net$nodes, net$edges,
+        fileTypeInput = "stg", n_perm = 49, seed = 3))
+    expect_true(all(c("EnergyP", "LowFrequencyP", "DegreeNormalisedEnergy",
+                      "DegreeNormalisedEnergyP", "Null") %in% names(out)))
+    expect_equal(out$Null, "node_label_total")
+    expect_true(out$DegreeNormalisedEnergy > 0)
+})
+
+test_that("strata permute within groups and the degree warning has its own class", {
+    set.seed(2)
+    net <- star_plus_net()
+    # scores that follow degree
+    deg <- as.numeric(table(factor(c(net$edges$V1, net$edges$V2),
+                                   levels = net$nodes$ID)))
+    x <- stats::setNames(deg + rnorm(33, sd = 0.3), net$nodes$ID)
+    expect_warning(leviGraphSpectrum(x, net$nodes, net$edges,
+        fileTypeInput = "stg", n_perm = 9), class = "levi_degree_warning")
+    expect_no_warning(leviGraphSpectrum(x, net$nodes, net$edges,
+        fileTypeInput = "stg", n_perm = 9, strata = "degree"))
+    # draws stay inside their strata
+    strata <- rep(c("a", "b", "c"), length.out = 12)
+    draws <- levi:::.nodeShuffles(1:12, 40, strata)
+    expect_true(all(vapply(draws, function(d)
+        all(vapply(split(seq_along(d), strata), function(i)
+            setequal(d[i], i), logical(1))), logical(1))))
+    expect_error(leviGraphSpectrum(x, net$nodes, net$edges, fileTypeInput = "stg",
+                                   n_perm = 9, strata = c(1, 2)), "strata")
+    out <- leviGraphSpectrum(x, net$nodes, net$edges, fileTypeInput = "stg",
+                             n_perm = 49, seed = 1, strata = "degree")
+    expect_equal(out$Null, "node_label_stratified")
+})
