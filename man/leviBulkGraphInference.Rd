@@ -19,6 +19,7 @@ leviBulkGraphInference(
   permutation_method = c("auto", "monte_carlo", "exact"),
   max_exact = 50000L,
   refit_dispersions = TRUE,
+  sig_level = 0.05,
   BPPARAM = SerialParam()
 )
 }
@@ -56,6 +57,9 @@ faster, but those estimates depend on the observed labels and the test
 then has no level guarantee: in null simulations (4 vs 4, 30 genes) its
 family-wise error rate was about three times the attainable level. Use it
 for exploration only.}
+
+\item{sig_level}{Significance level used for the `Significant` and
+`GlobalSignificant` flags. It does not change any P-value. Default 0.05.}
 
 \item{BPPARAM}{A [BiocParallel::BiocParallelParam] object controlling how
 the permutations are evaluated. The default runs them serially.}

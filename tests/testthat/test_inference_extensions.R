@@ -82,7 +82,8 @@ test_that("network statistics provide TFCE, Moran, spectrum and rewiring nulls",
     expect_equal(nrow(tfce$statistic), length(genes))
     expect_true(all(c("PGlobal", "GlobalSignificant") %in% names(tfce$statistic)))
     score <- setNames(rnorm(length(genes)), genes)
-    expect_true(is.finite(leviGraphMoran(score, net, n_perm = 3)$global$MoranI))
+    expect_true(is.finite(suppressWarnings(
+        leviGraphMoran(score, net, n_perm = 3))$global$MoranI))
     expect_true(is.finite(leviGraphSpectrum(score, net, n_perm = 3)$LaplacianEnergy))
     expect_true(is.list(leviGraphRewiringInference(score, net, n_perm = 2)))
 })

@@ -140,6 +140,7 @@ leviReplicateInference <- function(expression, groups, gene_ids = rownames(expre
     n_perm = 999L, sig_level = 0.05, seed = NULL,
     permutation_method = c("auto", "monte_carlo", "exact"),
     max_exact = 50000L, BPPARAM = SerialParam(), ...) {
+    .warnGroupOrder(missing(test), missing(control), test, control)
     expression <- as.matrix(expression)
     storage.mode(expression) <- "double"
     if (ncol(expression) != length(groups))
@@ -283,6 +284,8 @@ leviReplicateInference <- function(expression, groups, gene_ids = rownames(expre
 #' @param n_perm Number of sample-label permutations.
 #' @param blocks Optional exchangeability blocks.
 #' @param seed Optional RNG seed.
+#' @param sig_level Significance level used for the `Significant` and
+#'   `GlobalSignificant` flags. It does not change any P-value. Default 0.05.
 #' @param BPPARAM A [BiocParallel::BiocParallelParam] object controlling how
 #'   the permutations are evaluated. The default runs them serially.
 #' @param permutation_method `"auto"`, `"monte_carlo"` or `"exact"`.
@@ -312,7 +315,9 @@ leviGraphClusterInference <- function(expression, groups,
     fileTypeInput = "dat", test = unique(groups)[2], control = unique(groups)[1],
     threshold = 2, n_perm = 999L, blocks = NULL, seed = NULL,
     permutation_method = c("auto", "monte_carlo", "exact"), max_exact = 50000L,
-    BPPARAM = SerialParam()) {
+    sig_level = 0.05, BPPARAM = SerialParam()) {
+    .checkSigLevel(sig_level)
+    .warnGroupOrder(missing(test), missing(control), test, control)
     if (!requireNamespace("limma", quietly = TRUE))
         stop("'limma' is required for moderated-t graph inference.", call. = FALSE)
     expression <- as.matrix(expression)
@@ -349,14 +354,15 @@ leviGraphClusterInference <- function(expression, groups,
     observed_stat <- statistic(groups)
     summary <- .graphRegions(observed_stat, nodes, edge_index, threshold)
     observed <- list(summary = summary)
-    perms <- .labelPermutations(groups, blocks, n_perm, permutation_method, max_exact)
+    perms <- .labelPermutations(groups, blocks, n_perm, permutation_method, max_exact, alpha = sig_level)
     null <- .permutationNull(perms$labels, function(perm)
         .directionMaxima(.graphRegions(statistic(perm), nodes, edge_index,
                                        threshold)),
         BPPARAM = BPPARAM, names = c("over", "under"))
     observed <- .regionalPvalues(observed, null)
-    observed$summary$Significant <- observed$summary$PSpatial <= .05
-    list(statistic = data.frame(Gene = names(observed_stat), T = as.numeric(observed_stat)),
+    observed$summary$Significant <- observed$summary$PSpatial <= sig_level
+    list(test = test, control = control,
+        statistic = data.frame(Gene = names(observed_stat), T = as.numeric(observed_stat)),
          regions = observed, threshold = threshold, n_perm = nrow(null), exact = perms$exact,
          possible_permutations = perms$possible, p_floor = perms$floor,
          method = "limma moderated t; graph-connected maximum cluster mass; sample labels")

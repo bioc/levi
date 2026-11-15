@@ -11,6 +11,7 @@ leviGraphGetisOrd(
   fileTypeInput = "dat",
   n_perm = 999L,
   seed = NULL,
+  sig_level = 0.05,
   BPPARAM = SerialParam()
 )
 }
@@ -26,6 +27,8 @@ accepted by [levi()].}
 \item{n_perm}{Number of node-label permutations used to build the null.}
 
 \item{seed}{Optional RNG seed.}
+
+\item{sig_level}{Significance level for the `Significant` flag on adjusted P-values. Default 0.05.}
 
 \item{BPPARAM}{A [BiocParallel::BiocParallelParam] object controlling how
 the permutations are evaluated. The default runs them serially.}

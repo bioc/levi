@@ -15,6 +15,7 @@ leviGraphTFCERewiring(
   H = 2,
   n_steps = 100L,
   seed = NULL,
+  sig_level = 0.05,
   BPPARAM = SerialParam()
 )
 }
@@ -40,6 +41,8 @@ and to the threshold height at every integration step.}
 between zero and the maximum statistic.}
 
 \item{seed}{Optional RNG seed.}
+
+\item{sig_level}{Significance level for the `Significant` flag. Default 0.05.}
 
 \item{BPPARAM}{A [BiocParallel::BiocParallelParam] object controlling how
 the permutations are evaluated. The default runs them serially.}

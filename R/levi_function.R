@@ -538,6 +538,8 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
                     region_threshold = region_threshold,
                     region_min_cells = region_min_cells,
                     region_definition = "8-connected grid cells beyond neutral score",
+                    diagnostics = .networkDiagnostics(nodeCoordNorm, edge_index,
+                        sigmaCells * increase, matrixOut),
                     missing_genes = as.character(naTotal),
                     n_perm = n_perm, sig_level = sig_level,
                     p_adjust_method = p_adjust_method,

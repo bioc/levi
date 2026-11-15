@@ -4,7 +4,11 @@
 \alias{leviFromDESeq2}
 \title{leviFromDESeq2}
 \usage{
-leviFromDESeq2(dds_result, gene_col = "GeneID")
+leviFromDESeq2(
+  dds_result,
+  gene_col = "GeneID",
+  value = c("log2FoldChange", "stat")
+)
 }
 \arguments{
 \item{dds_result}{A \code{DESeqResults} object returned by
@@ -13,11 +17,17 @@ leviFromDESeq2(dds_result, gene_col = "GeneID")
 
 \item{gene_col}{Character. Name for the gene identifier column.
 Default is \code{"GeneID"}.}
+
+\item{value}{Which per-gene score to carry: \code{"log2FoldChange"}
+(default) or \code{"stat"}, the Wald statistic. The statistic divides the
+fold change by its standard error, so a noisy gene with a large estimate
+counts less. It requires a \code{stat} column, which results shrunk with
+\code{lfcShrink(type = "apeglm")} do not have.}
 }
 \value{
 A \code{data.frame} with columns: gene identifier, baseMean
-(abundance annotation) and log2FoldChange, ready to pass
-to \code{levi(expressionInput = ...)}.
+(abundance annotation) and the chosen score (\code{log2FoldChange} or
+\code{stat}), ready to pass to \code{levi(expressionInput = ...)}.
 }
 \description{
 Convert a DESeq2 result object into a data.frame compatible
@@ -25,7 +35,10 @@ with \code{levi}'s \code{expressionInput} parameter.
 }
 \details{
 Use \code{signal_mode = "logfc"} and
-\code{readExpColumn("log2FoldChange-log2FoldChange")}.
+\code{readExpColumn("log2FoldChange-log2FoldChange")} (or
+\code{"stat-stat"}). The statistic is on the t scale, a few units wide,
+while log fold changes are usually below 2, so with \code{value = "stat"}
+choose \code{logfc_k} accordingly (a smaller value flattens the sigmoid).
 The \code{baseMean} column is annotation, not a control measurement.
 Rows with \code{NA} in \code{log2FoldChange} are removed automatically.
 }

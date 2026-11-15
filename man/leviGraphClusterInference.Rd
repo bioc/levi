@@ -18,6 +18,7 @@ leviGraphClusterInference(
   seed = NULL,
   permutation_method = c("auto", "monte_carlo", "exact"),
   max_exact = 50000L,
+  sig_level = 0.05,
   BPPARAM = SerialParam()
 )
 }
@@ -46,6 +47,9 @@ the number of assignments is at most `max_exact` and Monte Carlo otherwise.}
 
 \item{max_exact}{Maximum number of label assignments enumerated by the exact
 permutation scheme.}
+
+\item{sig_level}{Significance level used for the `Significant` and
+`GlobalSignificant` flags. It does not change any P-value. Default 0.05.}
 
 \item{BPPARAM}{A [BiocParallel::BiocParallelParam] object controlling how
 the permutations are evaluated. The default runs them serially.}

@@ -62,7 +62,8 @@ leviSingleCellTFCEInference <- function(counts, donor, cell_type, condition,
     fileTypeInput = "dat", min_cells = 10L, cell_types = NULL,
     n_perm = 999L, permutation_method = c("auto", "monte_carlo", "exact"),
     max_exact = 50000L, E = .5, H = 2, n_steps = 100L, seed = NULL,
-    normalize = c("TMM", "none"), BPPARAM = SerialParam()) {
+    normalize = c("TMM", "none"), sig_level = 0.05, BPPARAM = SerialParam()) {
+    .checkSigLevel(sig_level)
     normalize <- match.arg(normalize)
     if (!requireNamespace("limma", quietly = TRUE))
         stop("'limma' is required.", call. = FALSE)
@@ -109,7 +110,7 @@ leviSingleCellTFCEInference <- function(counts, donor, cell_type, condition,
     # One draw yields the over/under TFCE maxima of every cell type; the
     # global null is the largest of them.
     perms <- .labelPermutations(design$groups, design$blocks, n_perm,
-                                permutation_method, max_exact)
+                                permutation_method, max_exact, alpha = sig_level)
     null <- .permutationNull(perms$labels, function(g) {
         unlist(lapply(expression, function(expr)
             .tfceMaxima(statistic(expr, g), ni$nodes, ni$edges, E, H,
@@ -127,7 +128,7 @@ leviSingleCellTFCEInference <- function(counts, donor, cell_type, condition,
             TFCEOver = o$tfce[, 1], TFCEUnder = o$tfce[, 2],
             POver = .maxPvalue(null[, over_col], o$tfce[, 1]),
             PUnder = .maxPvalue(null[, over_col + 1L], o$tfce[, 2]),
-            PGlobal = p_global, GlobalSignificant = p_global <= .05)
+            PGlobal = p_global, GlobalSignificant = p_global <= sig_level)
     })
     names(tables) <- types
 
@@ -250,7 +251,8 @@ leviSingleCellRegionalInference <- function(counts, donor, cell_type,
     fileTypeInput = "dat", min_cells = 10L, cell_types = NULL, threshold = 2,
     n_perm = 999L, permutation_method = c("auto", "monte_carlo", "exact"),
     max_exact = 50000L, seed = NULL, normalize = c("TMM", "none"),
-    BPPARAM = SerialParam(), ...) {
+    sig_level = 0.05, BPPARAM = SerialParam(), ...) {
+    .checkSigLevel(sig_level)
     normalize <- match.arg(normalize)
     if (!requireNamespace("limma", quietly = TRUE))
         stop("'limma' is required.", call. = FALSE)
@@ -280,7 +282,7 @@ leviSingleCellRegionalInference <- function(counts, donor, cell_type,
     statistic <- function(expr, g)
         .moderatedT(expr, g, levels, design$blocks, trend = TRUE)
     perms <- .labelPermutations(design$groups, design$blocks, n_perm,
-                                permutation_method, max_exact)
+                                permutation_method, max_exact, alpha = sig_level)
 
     # 1. Graph-connected cluster mass, one joint null over cell types.
     observed_clusters <- lapply(expression, function(expr)
@@ -295,7 +297,7 @@ leviSingleCellRegionalInference <- function(counts, donor, cell_type,
     }, BPPARAM = BPPARAM, names = c("over", "under"))
     clusters <- lapply(observed_clusters, function(z) {
         z <- .regionalPvalues(z, null_cluster)
-        z$summary$Significant <- z$summary$PSpatial <= .05
+        z$summary$Significant <- z$summary$PSpatial <= sig_level
         z
     })
 
@@ -348,7 +350,7 @@ leviSingleCellRegionalInference <- function(counts, donor, cell_type,
     }, BPPARAM = BPPARAM, names = c("over", "under"))
     landscapes <- lapply(landscapes, function(z) {
         z$regions <- .regionalPvalues(z$regions, null_area)
-        z$regions$summary$Significant <- z$regions$summary$PSpatial <= .05
+        z$regions$summary$Significant <- z$regions$summary$PSpatial <= sig_level
         z$regions$inference <- list(method = "joint donor-label maximum",
                                     scope = "cell types and directions")
         .annotateReplicateRegions(z)
@@ -405,7 +407,8 @@ leviSingleCellInteractionTFCE <- function(counts, donor, cell_type, condition,
     cell_types = NULL, n_perm = 999L,
     permutation_method = c("auto", "monte_carlo", "exact"),
     max_exact = 50000L, E = .5, H = 2, n_steps = 100L, seed = NULL,
-    normalize = c("TMM", "none"), BPPARAM = SerialParam()) {
+    normalize = c("TMM", "none"), sig_level = 0.05, BPPARAM = SerialParam()) {
+    .checkSigLevel(sig_level)
     normalize <- match.arg(normalize)
     if (!requireNamespace("limma", quietly = TRUE))
         stop("'limma' is required.", call. = FALSE)
@@ -487,7 +490,7 @@ leviSingleCellInteractionTFCE <- function(counts, donor, cell_type, condition,
         .tfce(s, ni$nodes, ni$edges, E, H, n_steps))
 
     perms <- .labelPermutations(design$groups, design$blocks, n_perm,
-                                permutation_method, max_exact)
+                                permutation_method, max_exact, alpha = sig_level)
     null <- .permutationNull(perms$labels, function(g) {
         max(vapply(statistic(g), function(s)
             max(.tfceMaxima(s, ni$nodes, ni$edges, E, H, n_steps)),
@@ -501,7 +504,7 @@ leviSingleCellInteractionTFCE <- function(counts, donor, cell_type, condition,
         data.frame(
             Gene = ni$nodes, T = as.numeric(observed_t[[tp]][ni$nodes]),
             TFCEOver = o[, 1], TFCEUnder = o[, 2], PGlobal = p_global,
-            GlobalSignificant = p_global <= .05,
+            GlobalSignificant = p_global <= sig_level,
             Interaction = paste0(tp, " versus ", reference_cell_type))
     })
     names(tables) <- others

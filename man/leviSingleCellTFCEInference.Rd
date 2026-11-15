@@ -22,6 +22,7 @@ leviSingleCellTFCEInference(
   n_steps = 100L,
   seed = NULL,
   normalize = c("TMM", "none"),
+  sig_level = 0.05,
   BPPARAM = SerialParam()
 )
 }
@@ -65,6 +66,9 @@ between zero and the maximum statistic.}
 \item{normalize}{Library-size normalisation applied before the log2
 counts-per-million transform: `"TMM"` (trimmed mean of M-values via
 \pkg{edgeR}, the default) or `"none"` (plain counts per million).}
+
+\item{sig_level}{Significance level used for the `Significant` and
+`GlobalSignificant` flags. It does not change any P-value. Default 0.05.}
 
 \item{BPPARAM}{A [BiocParallel::BiocParallelParam] object controlling how
 the permutations are evaluated. The default runs them serially.}

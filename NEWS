@@ -30,6 +30,32 @@ Statistical corrections
       their nulls treat scores as exchangeable over nodes and reject under
       co-expression or degree association without any condition effect.
 
+New options (default behaviour and P-values unchanged)
+    o The graph and pseudobulk tests take 'sig_level' (default 0.05) for
+      their Significant and GlobalSignificant flags; it also feeds the
+      warning about the smallest attainable P-value. It does not change any
+      P-value.
+    o leviGraphMoran() and leviGraphGetisOrd() warn, with the condition class
+      "levi_resolution_warning", when n_perm is too small for BH across the
+      nodes to declare a single node significant.
+    o leviGraphGetisOrd() adds PConditional and PConditionalAdjusted, a
+      conditional-permutation P-value that keeps the node's own score fixed
+      like the local Moran (the unconditional P rejected 11% of extreme
+      nodes under an iid null, the conditional one 4%). The node-wise tests
+      carry a 'Null' column naming the permutation null.
+    o leviGraphTFCEInference(), leviGraphTFCEFreedmanLane(),
+      leviGraphClusterInference(), leviBulkGraphInference() and
+      leviReplicateInference() warn (class "levi_group_order_warning") when
+      'test' and 'control' are taken from the order in which the group
+      labels appear, and the first four store them in the result as $test
+      and $control.
+    o leviFromDESeq2(value = "stat") and leviFromLimma(value = "t") carry the
+      Wald or moderated t-statistic instead of the fold change.
+    o levi() stores $metadata$diagnostics: number of components, share of
+      nodes in the largest one, diameter, median edge length, the kernel
+      width in edge lengths and the share of the grid inside the
+      silhouette.
+
 Performance (results unchanged)
     o The graph TFCE statistic runs in C++ with union-find components
       (src/tfce.cpp), 25 to 40 times faster on a 1,000-node graph and equal

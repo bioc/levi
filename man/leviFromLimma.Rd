@@ -4,7 +4,7 @@
 \alias{leviFromLimma}
 \title{leviFromLimma}
 \usage{
-leviFromLimma(fit, coef = NULL, gene_col = "GeneID")
+leviFromLimma(fit, coef = NULL, gene_col = "GeneID", value = c("logFC", "t"))
 }
 \arguments{
 \item{fit}{A \code{MArrayLM} object after \code{limma::eBayes()}, or any
@@ -18,11 +18,16 @@ fold-change.}
 
 \item{gene_col}{Character. Name for the gene identifier column.
 Default is \code{"GeneID"}.}
+
+\item{value}{Which per-gene score to carry: \code{"logFC"} (default) or
+\code{"t"}, the moderated t-statistic, which weights each fold change by
+its precision. With \code{"t"} choose \code{logfc_k} for the t scale.}
 }
 \value{
 A \code{data.frame} with columns: gene identifier, AveExpr
-(abundance annotation) and logFC. Use \code{signal_mode = "logfc"}
-with \code{readExpColumn("logFC-logFC")}; abundance is not a control.
+(abundance annotation) and the chosen score (\code{logFC} or \code{t}).
+Use \code{signal_mode = "logfc"} with \code{readExpColumn("logFC-logFC")}
+(or \code{"t-t"}); abundance is not a control.
 }
 \description{
 Convert a limma result object into a data.frame compatible

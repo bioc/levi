@@ -174,3 +174,17 @@ test_that("levi(): reports a network format mismatch as such", {
              smoothValueInput     = 5),
         "no '\\*nodes' section")
 })
+
+test_that("levi() stores network and kernel diagnostics in the metadata", {
+    d <- .res$metadata$diagnostics
+    expect_named(d, c("n_nodes", "n_edges", "n_components",
+                      "largest_component_fraction", "diameter",
+                      "median_edge_length", "sigma_in_edge_lengths",
+                      "silhouette_fraction"))
+    expect_equal(d$n_nodes, 9)
+    expect_equal(d$n_components, 1)
+    expect_equal(d$largest_component_fraction, 1)
+    expect_equal(d$diameter, 2)        # hub and eight leaves: leaf-hub-leaf
+    expect_gt(d$sigma_in_edge_lengths, 0)
+    expect_true(d$silhouette_fraction > 0 && d$silhouette_fraction <= 1)
+})

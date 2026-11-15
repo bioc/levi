@@ -6,12 +6,20 @@
 #' \code{baseMean} and \code{log2FoldChange}.
 #' @param gene_col Character. Name for the gene identifier column.
 #' Default is \code{"GeneID"}.
+#' @param value Which per-gene score to carry: \code{"log2FoldChange"}
+#' (default) or \code{"stat"}, the Wald statistic. The statistic divides the
+#' fold change by its standard error, so a noisy gene with a large estimate
+#' counts less. It requires a \code{stat} column, which results shrunk with
+#' \code{lfcShrink(type = "apeglm")} do not have.
 #' @return A \code{data.frame} with columns: gene identifier, baseMean
-#' (abundance annotation) and log2FoldChange, ready to pass
-#' to \code{levi(expressionInput = ...)}.
+#' (abundance annotation) and the chosen score (\code{log2FoldChange} or
+#' \code{stat}), ready to pass to \code{levi(expressionInput = ...)}.
 #' @details
 #' Use \code{signal_mode = "logfc"} and
-#' \code{readExpColumn("log2FoldChange-log2FoldChange")}.
+#' \code{readExpColumn("log2FoldChange-log2FoldChange")} (or
+#' \code{"stat-stat"}). The statistic is on the t scale, a few units wide,
+#' while log fold changes are usually below 2, so with \code{value = "stat"}
+#' choose \code{logfc_k} accordingly (a smaller value flattens the sigmoid).
 #' The \code{baseMean} column is annotation, not a control measurement.
 #' Rows with \code{NA} in \code{log2FoldChange} are removed automatically.
 #' @examples
@@ -28,14 +36,20 @@
 #' expr_df <- leviFromDESeq2(res, gene_col = "GeneSymbol")
 #' }
 #' @export
-leviFromDESeq2 <- function(dds_result, gene_col = "GeneID") {
+leviFromDESeq2 <- function(dds_result, gene_col = "GeneID",
+                           value = c("log2FoldChange", "stat")) {
+    value <- match.arg(value)
     result_df <- as.data.frame(dds_result)
     if (!all(c("baseMean", "log2FoldChange") %in% colnames(result_df))) {
         stop("dds_result must have 'baseMean' and 'log2FoldChange' columns.")
     }
+    if (value == "stat" && !"stat" %in% colnames(result_df))
+        stop("value = \"stat\" needs a 'stat' column; results shrunk with ",
+             "lfcShrink(type = \"apeglm\") do not have one. Use the unshrunk ",
+             "results() or value = \"log2FoldChange\".", call. = FALSE)
     result_df[[gene_col]] <- rownames(result_df)
-    out <- result_df[, c(gene_col, "baseMean", "log2FoldChange")]
-    colnames(out) <- c(gene_col, "baseMean", "log2FoldChange")
+    out <- result_df[, c(gene_col, "baseMean", value)]
+    colnames(out) <- c(gene_col, "baseMean", value)
     out <- na.omit(out)
     rownames(out) <- NULL
     return(out)
@@ -108,9 +122,13 @@ leviFromEdgeR <- function(fit, coef = 1, gene_col = "GeneID") {
 #' fold-change.
 #' @param gene_col Character. Name for the gene identifier column.
 #' Default is \code{"GeneID"}.
+#' @param value Which per-gene score to carry: \code{"logFC"} (default) or
+#' \code{"t"}, the moderated t-statistic, which weights each fold change by
+#' its precision. With \code{"t"} choose \code{logfc_k} for the t scale.
 #' @return A \code{data.frame} with columns: gene identifier, AveExpr
-#' (abundance annotation) and logFC. Use \code{signal_mode = "logfc"}
-#' with \code{readExpColumn("logFC-logFC")}; abundance is not a control.
+#' (abundance annotation) and the chosen score (\code{logFC} or \code{t}).
+#' Use \code{signal_mode = "logfc"} with \code{readExpColumn("logFC-logFC")}
+#' (or \code{"t-t"}); abundance is not a control.
 #' @examples
 #' mock_top <- data.frame(
 #'     logFC   = c(2.1, -1.4, 0.5),
@@ -126,7 +144,9 @@ leviFromEdgeR <- function(fit, coef = 1, gene_col = "GeneID") {
 #' expr_df <- leviFromLimma(fit2, coef = "groupT", gene_col = "GeneSymbol")
 #' }
 #' @export
-leviFromLimma <- function(fit, coef = NULL, gene_col = "GeneID") {
+leviFromLimma <- function(fit, coef = NULL, gene_col = "GeneID",
+                          value = c("logFC", "t")) {
+    value <- match.arg(value)
     if (is.data.frame(fit) && all(c("logFC", "AveExpr") %in% colnames(fit))) {
         tt <- fit
     } else {
@@ -154,9 +174,12 @@ leviFromLimma <- function(fit, coef = NULL, gene_col = "GeneID") {
                  "coefficient.", call. = FALSE)
         tt <- limma::topTable(fit, coef = chosen, n = Inf, sort.by = "none")
     }
+    if (value == "t" && !"t" %in% colnames(tt))
+        stop("value = \"t\" needs a 't' column (limma::eBayes() and topTable()).",
+             call. = FALSE)
     tt[[gene_col]] <- rownames(tt)
-    out <- tt[, c(gene_col, "AveExpr", "logFC")]
-    colnames(out) <- c(gene_col, "AveExpr", "logFC")
+    out <- tt[, c(gene_col, "AveExpr", value)]
+    colnames(out) <- c(gene_col, "AveExpr", value)
     out <- na.omit(out)
     rownames(out) <- NULL
     return(out)

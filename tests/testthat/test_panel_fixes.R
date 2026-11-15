@@ -80,8 +80,8 @@ test_that("local Moran keeps the node's own score fixed", {
     net <- lattice_net()
     set.seed(5)
     x <- stats::setNames(rnorm(36), net$nodes$ID)
-    out <- leviGraphMoran(x, net$nodes, net$edges, fileTypeInput = "stg",
-                          n_perm = 199, seed = 1)
+    out <- suppressWarnings(leviGraphMoran(x, net$nodes, net$edges, fileTypeInput = "stg",
+                          n_perm = 199, seed = 1), classes = "levi_resolution_warning")
     # Under conditional permutation the local I of a node is its own z times
     # a sum of degree-many other z values, so the null mean is
     # -k_i z_i^2 / (n - 1); with 199 draws the observed p-values of iid
@@ -90,8 +90,8 @@ test_that("local Moran keeps the node's own score fixed", {
     expect_gt(mean(out$local$P), 0.3)
     # An isolated outlier with iid neighbours is not a cluster.
     x["g15"] <- 5
-    out <- leviGraphMoran(x, net$nodes, net$edges, fileTypeInput = "stg",
-                          n_perm = 199, seed = 1)
+    out <- suppressWarnings(leviGraphMoran(x, net$nodes, net$edges, fileTypeInput = "stg",
+                          n_perm = 199, seed = 1), classes = "levi_resolution_warning")
     expect_gt(out$local$P[out$local$Gene == "g15"], 0.05)
 })
 
@@ -100,8 +100,8 @@ test_that("local Moran flags a planted cluster", {
     set.seed(6)
     x <- stats::setNames(rnorm(36, sd = 0.3), net$nodes$ID)
     x[c("g14", "g15", "g16", "g9", "g21")] <- 3
-    out <- leviGraphMoran(x, net$nodes, net$edges, fileTypeInput = "stg",
-                          n_perm = 499, seed = 2)
+    out <- suppressWarnings(leviGraphMoran(x, net$nodes, net$edges, fileTypeInput = "stg",
+                          n_perm = 499, seed = 2), classes = "levi_resolution_warning")
     expect_lt(out$local$P[out$local$Gene == "g15"], 0.05)
     expect_lt(out$global$P, 0.05)
 })
@@ -110,11 +110,11 @@ test_that("local Moran flags a planted cluster", {
 
 test_that("graph tests reject unnamed or unmatched scores", {
     net <- lattice_net()
-    expect_error(leviGraphMoran(rnorm(36), net$nodes, net$edges,
-                                fileTypeInput = "stg", n_perm = 9),
+    expect_error(suppressWarnings(leviGraphMoran(rnorm(36), net$nodes, net$edges,
+                                fileTypeInput = "stg", n_perm = 9), classes = "levi_resolution_warning"),
                  "named by gene")
-    expect_error(leviGraphMoran(c(zz = 1, yy = 2), net$nodes, net$edges,
-                                fileTypeInput = "stg", n_perm = 9),
+    expect_error(suppressWarnings(leviGraphMoran(c(zz = 1, yy = 2), net$nodes, net$edges,
+                                fileTypeInput = "stg", n_perm = 9), classes = "levi_resolution_warning"),
                  "finite score")
 })
 
@@ -122,14 +122,14 @@ test_that("n_perm and fileTypeInput are validated", {
     net <- lattice_net()
     x <- stats::setNames(rnorm(36), net$nodes$ID)
     for (bad in list(0, -5, 2.5, "9"))
-        expect_error(leviGraphMoran(x, net$nodes, net$edges,
-                                    fileTypeInput = "stg", n_perm = bad),
+        expect_error(suppressWarnings(leviGraphMoran(x, net$nodes, net$edges,
+                                    fileTypeInput = "stg", n_perm = bad), classes = "levi_resolution_warning"),
                      "n_perm")
-    expect_error(leviGraphMoran(x, net$nodes, net$edges,
-                                fileTypeInput = "xyz", n_perm = 9),
+    expect_error(suppressWarnings(leviGraphMoran(x, net$nodes, net$edges,
+                                fileTypeInput = "xyz", n_perm = 9), classes = "levi_resolution_warning"),
                  "Unknown fileTypeInput")
-    expect_silent(leviGraphMoran(x, net$nodes, net$edges,
-                                 fileTypeInput = "STG", n_perm = 9))
+    expect_silent(suppressWarnings(leviGraphMoran(x, net$nodes, net$edges,
+                                 fileTypeInput = "STG", n_perm = 9), classes = "levi_resolution_warning"))
 })
 
 test_that("reciprocal edges are counted once", {
@@ -226,8 +226,8 @@ test_that("local Moran does not call an isolated outlier a cluster", {
         set.seed(1000 + i)
         x <- stats::setNames(rnorm(36), net$nodes$ID)
         x["g15"] <- 5
-        out <- leviGraphMoran(x, net$nodes, net$edges, fileTypeInput = "stg",
-                              n_perm = 99, seed = i)
+        out <- suppressWarnings(leviGraphMoran(x, net$nodes, net$edges, fileTypeInput = "stg",
+                              n_perm = 99, seed = i), classes = "levi_resolution_warning")
         out$local$P[out$local$Gene == "g15"] <= 0.05
     }, logical(1))
     expect_lt(mean(hit), 0.2)
@@ -296,4 +296,69 @@ test_that("duplicated gene names and unknown groups are errors", {
     expect_error(leviGraphTFCEInference(x, g, hub_net, n_perm = 0,
                                         test = "T", control = "C"),
                  "n_perm")
+})
+
+# --- Additive options (Phase 3) -----------------------------------------------
+
+test_that("resolution warning has its own class and fires only below the resolution", {
+    net <- lattice_net()
+    x <- stats::setNames(rnorm(36), net$nodes$ID)
+    expect_warning(
+        leviGraphMoran(x, net$nodes, net$edges, fileTypeInput = "stg",
+                       n_perm = 99, seed = 1),
+        class = "levi_resolution_warning")
+    # 36 nodes, alpha 0.05: one node qualifies once 1 / (n_perm + 1) <= 0.05 / 36.
+    expect_no_warning(
+        leviGraphMoran(x, net$nodes, net$edges, fileTypeInput = "stg",
+                       n_perm = 799, seed = 1))
+})
+
+test_that("Getis-Ord reports a conditional P-value that keeps the node's own score", {
+    net <- lattice_net()
+    # Rejection rate among extreme nodes under an iid null: the unconditional
+    # P moves the node's own value as well and rejected about 11%, the
+    # conditional one about 5%.
+    big_total <- big_cond <- logical(0)
+    for (i in 1:40) {
+        set.seed(300 + i)
+        x <- stats::setNames(rnorm(36), net$nodes$ID)
+        out <- suppressWarnings(leviGraphGetisOrd(x, net$nodes, net$edges,
+            fileTypeInput = "stg", n_perm = 99, seed = i))
+        big <- abs(as.numeric(scale(x))) > 1.5
+        big_total <- c(big_total, out$PTwoSided[big] <= 0.05)
+        big_cond <- c(big_cond, out$PConditional[big] <= 0.05)
+    }
+    expect_true(all(c("PConditional", "PConditionalAdjusted", "Null") %in%
+                    names(out)))
+    expect_lt(mean(big_cond), 0.12)
+    expect_gt(mean(big_total), mean(big_cond))
+})
+
+test_that("sig_level moves the flags and nothing else", {
+    skip_if_not_installed("limma")
+    set.seed(8)
+    x <- matrix(rnorm(9 * 8), 9, 8, dimnames = list(genes, NULL))
+    x[1:5, 5:8] <- x[1:5, 5:8] + 3
+    g <- rep(c("C", "T"), each = 4)
+    run <- function(level) suppressWarnings(leviGraphTFCEInference(x, g,
+        hub_net, test = "T", control = "C", n_perm = 99, seed = 2,
+        sig_level = level))
+    a <- run(0.05); b <- run(0.5)
+    expect_identical(a$statistic$PGlobal, b$statistic$PGlobal)
+    expect_true(sum(b$statistic$GlobalSignificant) >=
+                sum(a$statistic$GlobalSignificant))
+    expect_error(run(1.5), "sig_level")
+})
+
+test_that("test and control from the label order warn and are stored", {
+    skip_if_not_installed("limma")
+    set.seed(9)
+    x <- matrix(rnorm(9 * 6), 9, 6, dimnames = list(genes, NULL))
+    g <- rep(c("C", "T"), 3)
+    expect_warning(leviGraphTFCEInference(x, g, hub_net, n_perm = 9),
+                   class = "levi_group_order_warning")
+    out <- suppressWarnings(leviGraphTFCEInference(x, g, hub_net, n_perm = 9,
+                                                   test = "T", control = "C"))
+    expect_equal(out$test, "T")
+    expect_equal(out$control, "C")
 })

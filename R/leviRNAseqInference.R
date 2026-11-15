@@ -23,6 +23,8 @@
 #'   then has no level guarantee: in null simulations (4 vs 4, 30 genes) its
 #'   family-wise error rate was about three times the attainable level. Use it
 #'   for exploration only.
+#' @param sig_level Significance level used for the `Significant` and
+#'   `GlobalSignificant` flags. It does not change any P-value. Default 0.05.
 #' @param BPPARAM A [BiocParallel::BiocParallelParam] object controlling how
 #'   the permutations are evaluated. The default runs them serially.
 #' @param permutation_method `"auto"`, `"monte_carlo"` or `"exact"`.
@@ -57,7 +59,9 @@ leviBulkGraphInference <- function(counts, groups, networkCoordinatesInput,
     test = unique(groups)[2], control = unique(groups)[1], threshold = 2,
     n_perm = 999L, blocks = NULL, seed = NULL,
     permutation_method = c("auto", "monte_carlo", "exact"), max_exact = 50000L,
-    refit_dispersions = TRUE, BPPARAM = SerialParam()) {
+    refit_dispersions = TRUE, sig_level = 0.05, BPPARAM = SerialParam()) {
+    .checkSigLevel(sig_level)
+    .warnGroupOrder(missing(test), missing(control), test, control)
     if (!requireNamespace("DESeq2", quietly = TRUE))
         stop("'DESeq2' is required for bulk RNA-seq inference.", call. = FALSE)
     counts <- as.matrix(counts)
@@ -137,7 +141,7 @@ leviBulkGraphInference <- function(counts, groups, networkCoordinatesInput,
         estimator = estimator, dds = fit_dds(make_dds(groups), estimator))
     observed_fit <- tryCatch(fit_observed("trend"),
                              error = function(e) fit_observed("genewise"))
-    perms <- .labelPermutations(groups, blocks, n_perm, permutation_method, max_exact)
+    perms <- .labelPermutations(groups, blocks, n_perm, permutation_method, max_exact, alpha = sig_level)
     # By default everything is re-estimated per permutation. With
     # refit_dispersions = FALSE the size factors and dispersions estimated on
     # the observed labels are kept fixed and only the GLM is refitted; those
@@ -178,8 +182,9 @@ leviBulkGraphInference <- function(counts, groups, networkCoordinatesInput,
     null <- run$null
     observed <- list(summary = .graphRegions(observed_stat, nodes, edge_index, threshold))
     regions <- .regionalPvalues(observed, null)
-    regions$summary$Significant <- regions$summary$PSpatial <= .05
-    list(statistic = data.frame(Gene = names(observed_stat), Wald = as.numeric(observed_stat)),
+    regions$summary$Significant <- regions$summary$PSpatial <= sig_level
+    list(test = test, control = control,
+         statistic = data.frame(Gene = names(observed_stat), Wald = as.numeric(observed_stat)),
          regions = regions, threshold = threshold, n_perm = nrow(null), exact = perms$exact,
          possible_permutations = perms$possible, p_floor = perms$floor,
          dispersion_estimator = estimator,

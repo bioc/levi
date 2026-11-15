@@ -95,6 +95,8 @@
 #' @param n_steps Number of threshold steps used to integrate the TFCE score
 #'   between zero and the maximum statistic.
 #' @param seed Optional RNG seed.
+#' @param sig_level Significance level used for the `Significant` and
+#'   `GlobalSignificant` flags. It does not change any P-value. Default 0.05.
 #' @param BPPARAM A [BiocParallel::BiocParallelParam] object controlling how
 #'   the permutations are evaluated. The default runs them serially.
 #' @return A list with signed gene statistics, TFCE scores, FWER-adjusted
@@ -113,7 +115,9 @@ leviGraphTFCEInference <- function(expression, groups, networkCoordinatesInput,
     test = unique(groups)[2], control = unique(groups)[1], blocks = NULL,
     n_perm = 999L, permutation_method = c("auto", "monte_carlo", "exact"),
     max_exact = 50000L, E = .5, H = 2, n_steps = 100L, seed = NULL,
-    BPPARAM = SerialParam()) {
+    sig_level = 0.05, BPPARAM = SerialParam()) {
+    .checkSigLevel(sig_level)
+    .warnGroupOrder(missing(test), missing(control), test, control)
     if (!requireNamespace("limma", quietly = TRUE))
         stop("'limma' is required.", call. = FALSE)
     if (!is.null(seed)) withr::local_seed(seed)
@@ -128,7 +132,7 @@ leviGraphTFCEInference <- function(expression, groups, networkCoordinatesInput,
     observed <- .tfce(observed_t, ni$nodes, ni$edges, E, H, n_steps)
 
     perms <- .labelPermutations(groups, blocks, n_perm, permutation_method,
-                                max_exact)
+                                max_exact, alpha = sig_level)
     null <- .permutationNull(perms$labels, function(g)
         .tfceMaxima(statistic(g), ni$nodes, ni$edges, E, H, n_steps),
         BPPARAM = BPPARAM, names = c("over", "under"))
@@ -136,6 +140,7 @@ leviGraphTFCEInference <- function(expression, groups, networkCoordinatesInput,
     p_global <- .maxPvalue(null_global, pmax(observed[, 1], observed[, 2]))
 
     list(
+        test = test, control = control,
         statistic = data.frame(
             Gene = ni$nodes,
             T = as.numeric(observed_t[ni$nodes]),
@@ -143,7 +148,7 @@ leviGraphTFCEInference <- function(expression, groups, networkCoordinatesInput,
             POver = .maxPvalue(null[, 1], observed[, 1]),
             PUnder = .maxPvalue(null[, 2], observed[, 2]),
             PGlobal = p_global,
-            GlobalSignificant = p_global <= .05),
+            GlobalSignificant = p_global <= sig_level),
         null_max = null, null_global = null_global,
         exact = perms$exact, possible_permutations = perms$possible,
         p_floor = perms$floor,
@@ -240,6 +245,7 @@ leviGraphMoran <- function(scores, networkCoordinatesInput,
     null <- .blockedNull(seq_len(n), n_perm, statistic, tally,
                          BPPARAM = BPPARAM)
     p <- (1 + null$counts) / (null$n_perm + 1)
+    .warnResolution(null$n_perm, n, 0.05, "leviGraphMoran() local P-values")
 
     neighbour_mean <- ifelse(degree > 0, as.numeric(W %*% a$x) / degree, NA)
     centre <- mean(a$x)
@@ -252,7 +258,8 @@ leviGraphMoran <- function(scores, networkCoordinatesInput,
         global = data.frame(MoranI = observed[1], P = p[1]),
         local = data.frame(Gene = a$nodes, I = observed[-1], Class = class,
                            P = p[-1],
-                           PAdjusted = stats::p.adjust(p[-1], "BH")),
+                           PAdjusted = stats::p.adjust(p[-1], "BH"),
+                           Null = "node_label_conditional"),
         method = paste("node-label permutation (global);",
                        "conditional permutation (local)"))
 }
@@ -275,6 +282,7 @@ leviGraphMoran <- function(scores, networkCoordinatesInput,
 #' ([leviGraphTFCEInference()], [leviGraphClusterInference()]) to ask whether
 #' the condition changed a region of the network.
 #' @inheritParams leviGraphMoran
+#' @param sig_level Significance level for the `Significant` flag on adjusted P-values. Default 0.05.
 #' @return A data frame of local Getis--Ord Gi* scores with one-sided
 #'   permutation P-values for each direction, the two-sided P-value (twice the
 #'   smaller one-sided value), its Benjamini-Hochberg adjustment across nodes
@@ -287,7 +295,8 @@ leviGraphMoran <- function(scores, networkCoordinatesInput,
 #' @export
 leviGraphGetisOrd <- function(scores, networkCoordinatesInput,
     networkInteractionsInput = NA, fileTypeInput = "dat", n_perm = 999L,
-    seed = NULL, BPPARAM = SerialParam()) {
+    seed = NULL, sig_level = 0.05, BPPARAM = SerialParam()) {
+    .checkSigLevel(sig_level)
     if (!is.null(seed)) withr::local_seed(seed)
     a <- .alignedGraph(scores, networkCoordinatesInput,
                        networkInteractionsInput, fileTypeInput)
@@ -305,16 +314,47 @@ leviGraphGetisOrd <- function(scores, networkCoordinatesInput,
         gi
     }
     observed <- statistic(a$x)
-    tally <- function(block, counts) {
-        obs_rows <- rep(observed, each = nrow(block))
-        over <- colSums(block >= obs_rows, na.rm = TRUE)
-        under <- colSums(block <= obs_rows, na.rm = TRUE)
-        if (is.null(counts)) list(over = over, under = under) else
-            list(over = counts$over + over, under = counts$under + under)
+
+    # Conditional version: node i keeps its own value and only its neighbours
+    # are drawn, without replacement, from the other n - 1 values, as in the
+    # local Moran. Gi* includes the node itself, so the unconditional draw
+    # moves the node's own value too and mixes "extreme node" with "extreme
+    # neighbourhood". The mean and sd of the scores do not change under any
+    # permutation, so only the neighbour sum differs. The first k + 1
+    # positions of one random order, minus i itself when it is among them
+    # (or minus the last of them otherwise), are a uniform k-subset of the
+    # other nodes, which serves every node in O(n). It needs a 0/1 adjacency.
+    binary <- all(W@x %in% c(0, 1))
+    degree <- wi - 1
+    take <- pmin(degree + 1, n)
+    centre <- mean(a$x)
+    spread <- stats::sd(a$x) * sqrt((n * wi2 - wi^2) / pmax(n - 1, 1))
+    conditional <- function(order) {
+        xp <- a$x[order]
+        position <- integer(n)
+        position[order] <- seq_len(n)
+        drop <- ifelse(position <= take, a$x, xp[take])
+        gi <- (a$x + cumsum(xp)[take] - drop - centre * wi) / spread
+        gi[!is.finite(gi)] <- NA_real_
+        gi
     }
-    null <- .blockedNull(a$x, n_perm, statistic, tally, BPPARAM = BPPARAM)
-    p_over  <- (1 + null$counts$over) / (null$n_perm + 1)
-    p_under <- (1 + null$counts$under) / (null$n_perm + 1)
+    both <- function(order) c(statistic(a$x[order]), if (binary) conditional(order))
+    tally <- function(block, counts) {
+        k <- if (binary) 2L else 1L
+        res <- list()
+        for (m in seq_len(k)) {
+            cols <- seq_len(n) + (m - 1L) * n
+            obs <- rep(c(observed, if (binary) observed)[cols], each = nrow(block))
+            res[[m]] <- list(
+                over = colSums(block[, cols, drop = FALSE] >= obs, na.rm = TRUE),
+                under = colSums(block[, cols, drop = FALSE] <= obs, na.rm = TRUE))
+        }
+        if (is.null(counts)) res else Map(function(x, y)
+            list(over = x$over + y$over, under = x$under + y$under), counts, res)
+    }
+    null <- .blockedNull(seq_len(n), n_perm, both, tally, BPPARAM = BPPARAM)
+    p_over  <- (1 + null$counts[[1]]$over) / (null$n_perm + 1)
+    p_under <- (1 + null$counts[[1]]$under) / (null$n_perm + 1)
     p_over[!is.finite(observed)] <- NA_real_
     p_under[!is.finite(observed)] <- NA_real_
 
@@ -323,13 +363,25 @@ leviGraphGetisOrd <- function(scores, networkCoordinatesInput,
     # then adjusted as one family.
     p_two_sided <- pmin(1, 2 * pmin(p_over, p_under))
     p_adjusted <- stats::p.adjust(p_two_sided, "BH")
+    .warnResolution(null$n_perm, sum(is.finite(observed)), sig_level,
+                    "leviGraphGetisOrd() P-values")
 
-    data.frame(Gene = a$nodes, GiStar = observed, POver = p_over,
+    out <- data.frame(Gene = a$nodes, GiStar = observed, POver = p_over,
                PUnder = p_under, PTwoSided = p_two_sided,
                PAdjusted = p_adjusted,
                Class = ifelse(observed > 0, "hotspot", "coldspot"),
-               Significant = p_adjusted <= .05,
+               Significant = p_adjusted <= sig_level,
                method = "node-label permutation")
+    out$Null <- "node_label_total"
+    if (binary) {
+        c_over <- (1 + null$counts[[2]]$over) / (null$n_perm + 1)
+        c_under <- (1 + null$counts[[2]]$under) / (null$n_perm + 1)
+        c_over[!is.finite(observed)] <- NA_real_
+        c_under[!is.finite(observed)] <- NA_real_
+        out$PConditional <- pmin(1, 2 * pmin(c_over, c_under))
+        out$PConditionalAdjusted <- stats::p.adjust(out$PConditional, "BH")
+    }
+    out
 }
 
 #' Weighted Moran and Laplacian statistics for scored biological interactions
@@ -502,6 +554,7 @@ leviGraphSpectrum <- function(scores, networkCoordinatesInput,
 #' shares the co-expression caveat of the node-label tests. Treat it as a
 #' descriptive sensitivity analysis.
 #' @inheritParams leviGraphMoran
+#' @param sig_level Significance level for the `Significant` flag. Default 0.05.
 #' @param threshold Absolute score threshold for cluster formation.
 #' @param n_perm Number of rewired null networks.
 #' @param rewire_steps Number of degree-preserving edge swaps passed to
@@ -518,7 +571,8 @@ leviGraphSpectrum <- function(scores, networkCoordinatesInput,
 leviGraphRewiringInference <- function(scores, networkCoordinatesInput,
     networkInteractionsInput = NA, fileTypeInput = "dat", threshold = 2,
     n_perm = 999L, rewire_steps = NULL, seed = NULL,
-    BPPARAM = SerialParam()) {
+    sig_level = 0.05, BPPARAM = SerialParam()) {
+    .checkSigLevel(sig_level)
     if (!is.null(seed)) withr::local_seed(seed)
     ni <- .networkIndex(networkCoordinatesInput, networkInteractionsInput,
                         fileTypeInput)
@@ -533,7 +587,7 @@ leviGraphRewiringInference <- function(scores, networkCoordinatesInput,
         BPPARAM = BPPARAM, names = c("over", "under"))
 
     regions <- .regionalPvalues(observed, null)
-    regions$summary$Significant <- regions$summary$PSpatial <= .05
+    regions$summary$Significant <- regions$summary$PSpatial <= sig_level
     list(regions = regions, null_max = null,
          method = "degree-preserving graph rewiring; maximum cluster mass")
 }
@@ -564,7 +618,8 @@ leviGraphRewiringInference <- function(scores, networkCoordinatesInput,
 leviGraphTFCERewiring <- function(scores, networkCoordinatesInput,
     networkInteractionsInput = NA, fileTypeInput = "dat", n_perm = 999L,
     rewire_steps = NULL, E = .5, H = 2, n_steps = 100L, seed = NULL,
-    BPPARAM = SerialParam()) {
+    sig_level = 0.05, BPPARAM = SerialParam()) {
+    .checkSigLevel(sig_level)
     if (!is.null(seed)) withr::local_seed(seed)
     ni <- .networkIndex(networkCoordinatesInput, networkInteractionsInput,
                         fileTypeInput)
@@ -581,7 +636,7 @@ leviGraphTFCERewiring <- function(scores, networkCoordinatesInput,
 
     data.frame(Gene = ni$nodes, TFCEOver = observed[, 1],
                TFCEUnder = observed[, 2], PRewireGlobal = p_global,
-               Significant = p_global <= .05)
+               Significant = p_global <= sig_level)
 }
 
 # -- Freedman-Lane ------------------------------------------------------------
@@ -614,7 +669,9 @@ leviGraphTFCEFreedmanLane <- function(expression, groups, covariates,
     networkCoordinatesInput, networkInteractionsInput = NA,
     fileTypeInput = "dat", test = unique(groups)[2],
     control = unique(groups)[1], blocks = NULL, n_perm = 999L, E = .5, H = 2,
-    n_steps = 100L, seed = NULL, BPPARAM = SerialParam()) {
+    n_steps = 100L, seed = NULL, sig_level = 0.05, BPPARAM = SerialParam()) {
+    .checkSigLevel(sig_level)
+    .warnGroupOrder(missing(test), missing(control), test, control)
     if (!requireNamespace("limma", quietly = TRUE))
         stop("'limma' is required.", call. = FALSE)
     expression <- as.matrix(expression)
@@ -663,10 +720,11 @@ leviGraphTFCEFreedmanLane <- function(expression, groups, covariates,
     p_global <- .maxPvalue(null_global, pmax(observed[, 1], observed[, 2]))
 
     list(
+        test = test, control = control,
         statistic = data.frame(
             Gene = ni$nodes, T = as.numeric(observed_t[ni$nodes]),
             TFCEOver = observed[, 1], TFCEUnder = observed[, 2],
-            PGlobal = p_global, GlobalSignificant = p_global <= .05),
+            PGlobal = p_global, GlobalSignificant = p_global <= sig_level),
         null_global = null_global,
         method = "limma t; graph TFCE; Freedman-Lane residual permutation")
 }

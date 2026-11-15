@@ -387,3 +387,22 @@ test_that("stg path collapses an edge listed twice to one midpoint", {
     expect_equal(b$metadata$support_weights, a$metadata$support_weights)
     expect_equal(b$scores, a$scores)
 })
+
+test_that("leviFromDESeq2 and leviFromLimma can carry the statistic instead of the fold change", {
+    res <- data.frame(baseMean = c(10, 20, 30), log2FoldChange = c(2, -1, 0.5),
+                      stat = c(4, -1.5, 0.2), row.names = c("A", "B", "C"))
+    expect_identical(colnames(leviFromDESeq2(res)),
+                     c("GeneID", "baseMean", "log2FoldChange"))
+    st <- leviFromDESeq2(res, value = "stat")
+    expect_identical(colnames(st), c("GeneID", "baseMean", "stat"))
+    expect_equal(st$stat, c(4, -1.5, 0.2))
+    expect_error(leviFromDESeq2(res[, c("baseMean", "log2FoldChange")],
+                                value = "stat"), "apeglm")
+    top <- data.frame(logFC = c(1, -2), AveExpr = c(5, 6), t = c(3, -4),
+                      row.names = c("A", "B"))
+    expect_identical(colnames(leviFromLimma(top, value = "t")),
+                     c("GeneID", "AveExpr", "t"))
+    expect_equal(leviFromLimma(top, value = "t")$t, c(3, -4))
+    expect_error(leviFromLimma(top[, c("logFC", "AveExpr")], value = "t"),
+                 "needs a 't' column")
+})

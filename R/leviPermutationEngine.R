@@ -187,6 +187,80 @@
                      increase, sigma, weights)
 }
 
+# Benjamini-Hochberg across m node-wise tests needs the P-values to reach
+# alpha * rank / m. With n_perm draws the smallest P-value is 1 / (n_perm + 1),
+# so an isolated node can only be significant when m / (n_perm + 1) <= alpha.
+# Below that resolution the family has to contain several nodes at the floor
+# before anything is declared, and in practice nothing is. The warning has
+# its own class so that callers can handle or silence it.
+.warnResolution <- function(n_perm, m, alpha, what) {
+    floor_p <- 1 / (n_perm + 1)
+    if (m * floor_p <= alpha) return(invisible(FALSE))
+    needed <- ceiling(m * floor_p / alpha)
+    msg <- sprintf(paste0(
+        "%s: with n_perm = %d the smallest attainable P-value is %.4g; across ",
+        "%d nodes BH needs at least %d nodes at that floor before any is ",
+        "significant at %.3g. Increase n_perm (to at least %d for a single ",
+        "node to qualify)."), what, n_perm, floor_p, m, needed, alpha,
+        ceiling(m / alpha) - 1L)
+    warning(structure(class = c("levi_resolution_warning", "warning",
+                                "condition"),
+                      list(message = msg, call = NULL)))
+    invisible(TRUE)
+}
+
+# 'test' and 'control' default to the order in which the group labels first
+# appear, so reordering the samples silently swaps the direction of every
+# statistic. The default stays for compatibility, but it now warns, and the
+# resolved pair is stored in the result.
+.warnGroupOrder <- function(test_missing, control_missing, test, control) {
+    if (test_missing || control_missing)
+        warning(structure(class = c("levi_group_order_warning", "warning",
+                                    "condition"),
+            list(message = sprintf(paste0(
+                "'test' and 'control' were taken from the order of appearance ",
+                "of the group labels (test = '%s', control = '%s'); reordering ",
+                "the samples would swap the direction. Pass them explicitly."),
+                test, control), call = NULL)))
+    invisible(NULL)
+}
+
+# Numbers that say how much a landscape result can be trusted before any
+# P-value is read: how connected the network is, and how wide the kernel is
+# relative to the edges and to the picture. A kernel narrower than an edge
+# smooths nothing across the network; one wider than a few edges blurs
+# neighbourhoods together. None of them enters a statistic.
+.networkDiagnostics <- function(node_coordinates, edge_index, sigma_coord,
+                                landscape) {
+    n <- nrow(node_coordinates)
+    g <- .graphFromEdges(n, unique(cbind(pmin(edge_index[, 1], edge_index[, 2]),
+                                         pmax(edge_index[, 1], edge_index[, 2]))))
+    comp <- igraph::components(g)
+    biggest <- which.max(comp$csize)
+    giant <- igraph::induced_subgraph(g, which(comp$membership == biggest))
+    edge_len <- if (nrow(edge_index))
+        sqrt(rowSums((node_coordinates[edge_index[, 1], , drop = FALSE] -
+                      node_coordinates[edge_index[, 2], , drop = FALSE])^2))
+    else numeric(0)
+    median_len <- if (length(edge_len)) stats::median(edge_len) else NA_real_
+    list(n_nodes = n, n_edges = nrow(edge_index),
+         n_components = comp$no,
+         largest_component_fraction = max(comp$csize) / n,
+         diameter = if (igraph::vcount(giant) > 1L) igraph::diameter(giant)
+                    else 0,
+         median_edge_length = median_len,
+         sigma_in_edge_lengths = sigma_coord / median_len,
+         silhouette_fraction = mean(!is.na(landscape)))
+}
+
+# Significance level shared by the graph and pseudobulk tests.
+.checkSigLevel <- function(sig_level) {
+    if (length(sig_level) != 1L || !is.numeric(sig_level) ||
+        !is.finite(sig_level) || sig_level <= 0 || sig_level >= 1)
+        stop("'sig_level' must be a single number in (0, 1).", call. = FALSE)
+    invisible(sig_level)
+}
+
 # Input checks shared by the permutation functions. Failing early replaces
 # the silent paths found by the panel: a gene table with no gene in common
 # with the network used to return zeros plus one warning per permutation,
