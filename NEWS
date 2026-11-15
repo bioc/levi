@@ -49,6 +49,15 @@ Behaviour changes (these alter landscapes and regional P-values)
       networks laid out by leviFromEdges() change; shipped files are
       unaffected.
 
+    o permutation_method = "auto" no longer exceeds n_perm. It enumerates
+      every label assignment only when that takes at most n_perm
+      permutations (and at most max_exact); otherwise it draws n_perm Monte
+      Carlo permutations. It used to enumerate up to max_exact assignments
+      whatever n_perm said, so an 8 vs 8 design with n_perm = 99 ran 12,869
+      permutations. With the default n_perm = 999, designs with more than
+      1,000 assignments (7 vs 7 and larger) are now sampled; use
+      permutation_method = "exact" for the full enumeration.
+
 New options (default behaviour and P-values unchanged)
     o levi(region_statistic = "standardised") measures a region on the
       landscape standardised by its standard deviation under node-label

@@ -29,8 +29,10 @@
 #'   the permutations are evaluated. The default runs them serially.
 #' @param permutation_method `"auto"`, `"monte_carlo"` or `"exact"`.
 #'   `"exact"` enumerates every distinct label assignment; `"monte_carlo"`
-#'   draws `n_perm` random permutations; `"auto"` uses the exact scheme when
-#'   the number of assignments is at most `max_exact` and Monte Carlo otherwise.
+#'   draws `n_perm` random permutations; `"auto"` (default) enumerates when
+#'   that takes no more permutations than `n_perm` (and at most `max_exact`),
+#'   and draws `n_perm` Monte Carlo permutations otherwise, so `n_perm` is
+#'   never exceeded. Use `"exact"` to force the full enumeration.
 #' @param max_exact Maximum number of label assignments enumerated by the exact
 #'   permutation scheme.
 #' @details For a fast alternative on the same design, transform the counts

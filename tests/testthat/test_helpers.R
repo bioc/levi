@@ -306,7 +306,8 @@ test_that(".labelPermutations counts large unblocked designs without enumerating
     # The exact scheme is unchanged for a small design (3 vs 3 has a floor
     # of 2/20 = 0.10, so it warns at the default alpha).
     expect_warning(
-        ex <- levi:::.labelPermutations(rep(c("a", "b"), each = 3), n_perm = 9L),
+        ex <- levi:::.labelPermutations(rep(c("a", "b"), each = 3), n_perm = 9L,
+                                        method = "exact"),
         "tied pairs")
     expect_true(ex$exact)
     expect_equal(ex$possible, 20)
@@ -443,4 +444,24 @@ test_that("landscape_m1 with a cached occupancy equals landscape_gauss()$m1 exac
                  "one value per point")
     expect_error(levi:::landscape_m1(pts, sg, occ[1:10, 1:10], 40L, -0.1,
                                      1.2 / 39, 3.4), "resolution x resolution")
+})
+
+test_that('.labelPermutations "auto" never exceeds n_perm', {
+    eight <- rep(c("C", "T"), each = 8)
+    mc <- suppressWarnings(levi:::.labelPermutations(eight, n_perm = 99))
+    expect_false(mc$exact)
+    expect_length(mc$labels, 99)
+    four <- rep(c("C", "T"), each = 4)
+    ex <- suppressWarnings(levi:::.labelPermutations(four, n_perm = 99))
+    expect_true(ex$exact)                       # 70 arrangements, 69 to draw
+    expect_length(ex$labels, 69)
+    # n_perm below the number of arrangements: Monte Carlo even when small
+    few <- suppressWarnings(levi:::.labelPermutations(four, n_perm = 20))
+    expect_false(few$exact)
+    expect_length(few$labels, 20)
+    # explicit "exact" still enumerates everything
+    full <- suppressWarnings(levi:::.labelPermutations(eight, n_perm = 99,
+                                                       method = "exact"))
+    expect_true(full$exact)
+    expect_length(full$labels, choose(16, 8) - 1)
 })

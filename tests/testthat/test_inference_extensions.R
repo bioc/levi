@@ -43,6 +43,7 @@ test_that("replicate inference permutes sample labels and returns regional p-val
     set.seed(4)
     expect_warning(out <- leviReplicateInference(mat, c("C", "C", "T", "T"),
         test = "T", control = "C", n_perm = 3, seed = 2,
+        permutation_method = "exact",
         networkCoordinatesInput = system.file("extdata", "hub_network.dat", package = "levi"),
         fileTypeInput = "dat", resolutionValueInput = 1,
         region_threshold = .02), "smallest attainable p-value")
@@ -62,7 +63,8 @@ test_that("graph cluster inference uses network-connected limma clusters", {
         c("C", "C", "C", "T", "T", "T"),
         system.file("extdata", "hub_network.dat", package = "levi"),
         test = "T", control = "C", threshold = 1, n_perm = 3,
-        blocks = c("d1", "d2", "d3", "d1", "d2", "d3"), seed = 1),
+        blocks = c("d1", "d2", "d3", "d1", "d2", "d3"), seed = 1,
+        permutation_method = "exact"),
         "smallest attainable p-value")
     expect_true(nrow(out$regions$summary) > 0)
     expect_true(all(out$regions$summary$Nodes >= 1))
@@ -138,7 +140,8 @@ test_that("bulk RNA-seq graph inference returns regional P-values", {
     counts[, 4:6] <- counts[, 4:6] + 30L
     expect_warning(out <- leviBulkGraphInference(counts, c("C", "C", "C", "T", "T", "T"),
         system.file("extdata", "hub_network.dat", package = "levi"),
-        test = "T", control = "C", threshold = 1, n_perm = 3, seed = 1),
+        test = "T", control = "C", threshold = 1, n_perm = 3, seed = 1,
+        permutation_method = "exact"),
         "tied pairs")
     expect_equal(out$p_floor, 0.1)
     expect_true(all(out$regions$summary$PSpatial >= .25))

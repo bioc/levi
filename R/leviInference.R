@@ -115,8 +115,10 @@ leviRegionGenes <- function(result, top_n = 20L) {
 #'   the permutations are evaluated. The default runs them serially.
 #' @param permutation_method `"auto"`, `"monte_carlo"` or `"exact"`.
 #'   `"exact"` enumerates every distinct label assignment; `"monte_carlo"`
-#'   draws `n_perm` random permutations; `"auto"` uses the exact scheme when
-#'   the number of assignments is at most `max_exact` and Monte Carlo otherwise.
+#'   draws `n_perm` random permutations; `"auto"` (default) enumerates when
+#'   that takes no more permutations than `n_perm` (and at most `max_exact`),
+#'   and draws `n_perm` Monte Carlo permutations otherwise, so `n_perm` is
+#'   never exceeded. Use `"exact"` to force the full enumeration.
 #' @param max_exact Maximum number of label assignments enumerated by the exact
 #'   permutation scheme.
 #' @param ... Network and landscape arguments passed to [levi()]. Do not supply
@@ -292,8 +294,10 @@ leviReplicateInference <- function(expression, groups, gene_ids = rownames(expre
 #'   the permutations are evaluated. The default runs them serially.
 #' @param permutation_method `"auto"`, `"monte_carlo"` or `"exact"`.
 #'   `"exact"` enumerates every distinct label assignment; `"monte_carlo"`
-#'   draws `n_perm` random permutations; `"auto"` uses the exact scheme when
-#'   the number of assignments is at most `max_exact` and Monte Carlo otherwise.
+#'   draws `n_perm` random permutations; `"auto"` (default) enumerates when
+#'   that takes no more permutations than `n_perm` (and at most `max_exact`),
+#'   and draws `n_perm` Monte Carlo permutations otherwise, so `n_perm` is
+#'   never exceeded. Use `"exact"` to force the full enumeration.
 #' @param max_exact Maximum number of label assignments enumerated by the exact
 #'   permutation scheme.
 #' @return List with observed moderated statistics, graph regions and null maxima.

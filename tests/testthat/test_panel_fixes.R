@@ -246,7 +246,7 @@ test_that("leviBulkGraphInference refits dispersions by default", {
     expect_warning(
         suppressMessages(fixed <- leviBulkGraphInference(counts, grp, net,
             test = "T", control = "C", threshold = 1, n_perm = 3, seed = 1,
-            refit_dispersions = FALSE)),
+            permutation_method = "exact", refit_dispersions = FALSE)),
         "no level guarantee")
     expect_false(fixed$refit_dispersions)
     # 20 sample-label arrangements: the exact floor is 2/20 = 0.1, the same

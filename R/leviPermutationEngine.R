@@ -52,8 +52,14 @@
         if (length(lev) == 1L) return(1)
         choose(length(i), sum(groups[i] == lev[2]))
     }, numeric(1)))
+    # "auto" enumerates only when that costs no more than the n_perm draws the
+    # caller asked for (n_possible - 1 non-identity arrangements <= n_perm),
+    # and never beyond max_exact. It used to enumerate up to max_exact
+    # whatever n_perm said, so an 8 vs 8 design with n_perm = 99 ran 12,869
+    # permutations.
     exact <- method == "exact" ||
-        (method == "auto" && n_possible <= max_exact)
+        (method == "auto" && n_possible <= max_exact &&
+         n_possible - 1 <= n_perm)
     if (exact && n_possible > max_exact)
         stop("Exact permutation space exceeds 'max_exact'.", call. = FALSE)
 
