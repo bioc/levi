@@ -54,6 +54,34 @@ landscape_m1 <- function(coord, signal, occupancy, resolutionValue, zoomValue, i
     .Call(`_levi_landscape_m1`, coord, signal, occupancy, resolutionValue, zoomValue, increase, sigma, weights)
 }
 
+#' Geometry of the node-label null of the landscape
+#'
+#' The surface at a cell is a weighted average of the signals of the nodes
+#' and of the edge midpoints, and a midpoint carries the mean of its two
+#' endpoints. Written on the node signals alone it is S(x) = sum_u b_u(x)
+#' s_u, where b_u is the kernel weight of node u plus half of the weight of
+#' each incident midpoint, divided by the occupancy, and the b_u(x) sum to
+#' one. Permuting the node signals among the m measured nodes gives
+#' E[S(x)] = mean(s) and Var[S(x)] = var(s) * sum_u (b_u(x) - 1/m)^2, so the
+#' standard deviation of the null field is var(s)^(1/2) times
+#' sqrt(sum_u b_u^2 - 1/m), which depends on the layout and the weights but
+#' not on the data. This returns that second factor on the grid, NA outside
+#' the silhouette. One blur per node, O(n * res^2 * r).
+#'
+#' @param coord (n + e) x 2 matrix of node coordinates followed by the edge
+#'   midpoints.
+#' @param edge_index e x 2 integer matrix (1-based node indices).
+#' @param occupancy matrix from \code{landscape_occupancy()} for the same
+#'   weights.
+#' @inheritParams landscape_gauss
+#' @param weights weights of the n + e points; a node of weight 0 is not
+#'   measured and is excluded from m.
+#' @return Resolution x resolution matrix.
+#' @keywords internal
+landscape_null_scale <- function(coord, edge_index, occupancy, resolutionValue, zoomValue, increase, sigma, weights) {
+    .Call(`_levi_landscape_null_scale`, coord, edge_index, occupancy, resolutionValue, zoomValue, increase, sigma, weights)
+}
+
 #' Index of the node nearest to each grid cell
 #'
 #' Used by the GUI to report which gene a region selected on the landscape

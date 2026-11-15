@@ -222,3 +222,83 @@ test_that("reciprocal edges and self-loops add no extra support in the landscape
     expect_equal(nrow(run(messy)$metadata$edges), 2)
     expect_identical(run(messy)$landscape, run(plain)$landscape)
 })
+
+test_that("bandwidth_edges sets the kernel width in edge lengths", {
+    net <- system.file("extdata", "medusa.dat", package = "levi")
+    genes <- unique(as.character(levi:::.parseNetwork(net, NA, "dat")$nodes[, 1]))
+    set.seed(3)
+    expr <- data.frame(ID = genes, Test = runif(length(genes), 1, 9), Control = 1)
+    run <- function(...) suppressMessages(levi(expr, "dat", net,
+        geneSymbolInput = "ID", readExpColumn = readExpColumn("Test-Control"),
+        resolutionValueInput = 80, .draw = FALSE, ...))
+    for (b in c(0.5, 1, 2.5))
+        for (zoom in c(0, 100)) {
+            d <- run(bandwidth_edges = b, zoomValueInput = zoom)$metadata$diagnostics
+            expect_equal(d$sigma_in_edge_lengths, b, tolerance = 0.03)
+        }
+    narrow <- run(bandwidth_edges = 0.5)$metadata$grid$sigma
+    wide <- run(bandwidth_edges = 2.5)$metadata$grid$sigma
+    expect_gt(wide, narrow)
+    expect_error(run(bandwidth_edges = -1), "bandwidth_edges")
+    # The default is untouched.
+    expect_null(run()$metadata$bandwidth_edges)
+})
+
+test_that("region_statistic = 'standardised' uses a field of unit variance under the node-label null", {
+    net <- system.file("extdata", "medusa.dat", package = "levi")
+    genes <- unique(as.character(levi:::.parseNetwork(net, NA, "dat")$nodes[, 1]))
+    set.seed(4)
+    expr <- data.frame(ID = genes, Test = runif(length(genes), 1, 9), Control = 1)
+    run <- function(...) suppressMessages(levi(expr, "dat", net,
+        geneSymbolInput = "ID", readExpColumn = readExpColumn("Test-Control"),
+        resolutionValueInput = 40, smoothValueInput = 30, .draw = FALSE, ...))
+    default <- run()
+    expect_equal(default$metadata$region_statistic, "excess")
+    expect_equal(default$metadata$region_threshold, 0.1)
+    std <- run(n_perm = 19, region_statistic = "standardised")
+    md <- std$metadata
+    expect_equal(md$region_threshold, 2)          # standard deviations
+    expect_identical(std$landscape, default$landscape)   # display unchanged
+    # Empirical standard deviation of the field over node-label permutations.
+    coord <- rbind(md$node_coordinates, (md$node_coordinates[md$edges[, 1], ] +
+                                         md$node_coordinates[md$edges[, 2], ]) / 2)
+    g <- md$grid
+    surface <- levi:::.m1Landscape(coord, g$resolution, g$zoom, g$increase,
+                                   g$sigma, g$occupancy, md$support_weights)
+    field <- levi:::.regionField(md)
+    set.seed(1)
+    sims <- replicate(600, {
+        s <- sample(md$node_signal)
+        sig <- c(s, (s[md$edges[, 1]] + s[md$edges[, 2]]) / 2)
+        field(surface(sig), sig)
+    })
+    sdz <- apply(sims, c(1, 2), stats::sd)
+    expect_gt(min(sdz, na.rm = TRUE), 0.85)
+    expect_lt(max(sdz, na.rm = TRUE), 1.15)
+    expect_error(run(region_statistic = "standardised", region_threshold = -1),
+                 "region_threshold")
+})
+
+test_that("the analytic null scale matches permutation standard deviations", {
+    set.seed(2)
+    n <- 25; coord <- cbind(runif(n), runif(n))
+    ed <- unique(t(apply(cbind(sample(n, 40, TRUE), sample(n, 40, TRUE)), 1, sort)))
+    ed <- ed[ed[, 1] != ed[, 2], , drop = FALSE]
+    allc <- rbind(coord, (coord[ed[, 1], ] + coord[ed[, 2], ]) / 2)
+    w <- rep(1, n + nrow(ed)); w[2] <- 0
+    w[n + which(ed[, 1] == 2 | ed[, 2] == 2)] <- 0
+    occ <- landscape_occupancy(allc, 30L, -0.1, 1.2 / 29, 2.5, 0.05, w)
+    scale <- levi:::landscape_null_scale(allc, matrix(as.integer(ed), ncol = 2),
+                                         occ, 30L, -0.1, 1.2 / 29, 2.5, w)
+    meas <- setdiff(seq_len(n), 2); s0 <- runif(n)
+    sims <- replicate(1000, {
+        s <- s0; s[meas] <- s0[sample(meas)]
+        landscape_m1(allc, c(s, (s[ed[, 1]] + s[ed[, 2]]) / 2), occ, 30L, -0.1,
+                     1.2 / 29, 2.5, w)
+    })
+    emp <- apply(sims, c(1, 2), stats::sd)
+    ok <- !is.na(emp) & !is.na(scale)
+    expect_gt(stats::cor(emp[ok], scale[ok] * stats::sd(s0[meas])), 0.99)
+    expect_equal(stats::median(emp[ok] / (scale[ok] * stats::sd(s0[meas]))), 1,
+                 tolerance = 0.03)
+})

@@ -98,9 +98,26 @@
 #' "BY" accommodates arbitrary dependence; "BH", "holm", "none" and other
 #' methods accepted by \code{stats::p.adjust} are available. Contours and
 #' \code{pvalues} use these adjusted values; \code{raw_pvalues} is unadjusted.
-#' @param region_threshold Positive deviation from the neutral score 0.5 used
-#' to define a regional cell. The default 0.1 identifies cells >= 0.6 or <= 0.4.
-#' This parameter describes regions and does not assign statistical significance.
+#' @param region_threshold Positive deviation used to define a regional cell.
+#' With \code{region_statistic = "excess"} it is measured from the neutral
+#' score 0.5 and defaults to 0.1 (cells >= 0.6 or <= 0.4). With
+#' \code{"standardised"} it is in standard deviations of the null field and
+#' defaults to 2. This parameter describes regions and does not assign
+#' statistical significance.
+#' @param region_statistic How a region is measured. \code{"excess"}
+#' (default) is the area-weighted excess of the landscape over the neutral
+#' score, the historical statistic. Under the node-label null the landscape
+#' varies much more where few nodes contribute (the periphery, a sparse
+#' branch) than in a dense block, so a fixed excess favours sparse regions.
+#' \code{"standardised"} divides the deviation of the landscape from the mean
+#' node signal by its standard deviation under node-label permutation, which
+#' is computed analytically from the layout and the weights (the midpoints are
+#' treated as the mean of their endpoints, an approximation that is within a
+#' few per cent of the permutation value). A region is then a connected set of
+#' cells beyond \code{region_threshold} standard deviations, and its mass,
+#' and the reported \code{PeakScore}, are on the scale 0.5 + Z. The same field
+#' is used in every node-label and sample-label permutation. The displayed
+#' landscape is unchanged.
 #' @param region_min_cells Minimum number of eight-connected grid cells retained
 #' as a region. Default is 3.
 #' @param perm_strata Optional vector defining exchangeability strata for the
@@ -118,6 +135,15 @@
 #' \code{"none"} drops the midpoints and smooths the node values alone. All three keep the same coordinates, silhouette
 #' logic and permutation nulls; the choice is recorded in
 #' \code{metadata$edge_weighting} and reused by the sample-label tests.
+#' @param bandwidth_edges Optional kernel width as a multiple of the median
+#' edge length of the layout. The default \code{NULL} keeps the width set by
+#' \code{smoothValueInput}, a fraction of the grid whose meaning depends on the
+#' layout and the zoom: the same slider position can smooth over one edge on a
+#' dense network and over five on a sparse one. With a number (1 to 3 is
+#' typical) the kernel reaches about that many edges, independent of the
+#' network and of \code{zoomValueInput}, and \code{smoothValueInput} is
+#' ignored. The width actually used is stored in
+#' \code{metadata$diagnostics$sigma_in_edge_lengths}.
 #' @param .parsed_network,.draw Internal controls used to reuse a parsed network
 #' and suppress repeated drawing in resampling workflows.
 #' @param inference_unit Either "region" (default) or "cell" (legacy). With
@@ -251,10 +277,14 @@ levi <- function(expressionInput, fileTypeInput, networkCoordinatesInput,
     contourLevi = FALSE, setcolor = "default", plot3d = FALSE,
     n_perm = 0, sig_level = 0.05, perm_side = c("both", "over", "under"),
     signal_mode = c("ratio", "logfc", "zscore"), logfc_k = 1,
-    p_adjust_method = "BY", region_threshold = 0.1, region_min_cells = 3L,
+    p_adjust_method = "BY", region_threshold = NULL, region_min_cells = 3L,
     inference_unit = c("region", "cell"), perm_strata = NULL,
     edge_weighting = c("midpoint", "degree", "none"),
+    bandwidth_edges = NULL, region_statistic = c("excess", "standardised"),
     .parsed_network = NULL, .draw = TRUE){
+        region_statistic <- match.arg(region_statistic)
+        if (is.null(region_threshold))
+            region_threshold <- if (region_statistic == "standardised") 2 else 0.1
         levi_function(expressionInput, fileTypeInput, networkCoordinatesInput,
             networkInteractionsInput, geneSymbolInput, readExpColumn,
             contrastValueInput, zoomValueInput, resolutionValueInput,
@@ -262,6 +292,7 @@ levi <- function(expressionInput, fileTypeInput, networkCoordinatesInput,
             n_perm, sig_level, perm_side, signal_mode, logfc_k, p_adjust_method,
             region_threshold, region_min_cells, inference_unit = inference_unit,
             perm_strata = perm_strata, .parsed_network = .parsed_network,
-            .draw = .draw, edge_weighting = edge_weighting)
+            .draw = .draw, edge_weighting = edge_weighting,
+            bandwidth_edges = bandwidth_edges, region_statistic = region_statistic)
 
 }

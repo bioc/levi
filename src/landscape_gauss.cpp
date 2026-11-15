@@ -317,6 +317,99 @@ NumericMatrix landscape_m1(NumericMatrix coord,
     return out;
 }
 
+//' Geometry of the node-label null of the landscape
+//'
+//' The surface at a cell is a weighted average of the signals of the nodes
+//' and of the edge midpoints, and a midpoint carries the mean of its two
+//' endpoints. Written on the node signals alone it is S(x) = sum_u b_u(x)
+//' s_u, where b_u is the kernel weight of node u plus half of the weight of
+//' each incident midpoint, divided by the occupancy, and the b_u(x) sum to
+//' one. Permuting the node signals among the m measured nodes gives
+//' E[S(x)] = mean(s) and Var[S(x)] = var(s) * sum_u (b_u(x) - 1/m)^2, so the
+//' standard deviation of the null field is var(s)^(1/2) times
+//' sqrt(sum_u b_u^2 - 1/m), which depends on the layout and the weights but
+//' not on the data. This returns that second factor on the grid, NA outside
+//' the silhouette. One blur per node, O(n * res^2 * r).
+//'
+//' @param coord (n + e) x 2 matrix of node coordinates followed by the edge
+//'   midpoints.
+//' @param edge_index e x 2 integer matrix (1-based node indices).
+//' @param occupancy matrix from \code{landscape_occupancy()} for the same
+//'   weights.
+//' @inheritParams landscape_gauss
+//' @param weights weights of the n + e points; a node of weight 0 is not
+//'   measured and is excluded from m.
+//' @return Resolution x resolution matrix.
+//' @keywords internal
+// [[Rcpp::export(rng = false)]]
+NumericMatrix landscape_null_scale(NumericMatrix coord,
+                                   IntegerMatrix edge_index,
+                                   NumericMatrix occupancy,
+                                   int resolutionValue,
+                                   double zoomValue,
+                                   double increase,
+                                   double sigma,
+                                   NumericVector weights)
+{
+    const int res = resolutionValue;
+    const int e = edge_index.nrow();
+    const int n = coord.nrow() - e;
+    if (res < 1) stop("resolutionValue must be >= 1");
+    if (n < 1) stop("coord must have at least one node");
+    if (weights.size() != n + e) stop("weights must have one value per point");
+    if (occupancy.nrow() != res || occupancy.ncol() != res)
+        stop("occupancy must be a resolution x resolution matrix");
+    if (!(increase > 0.0)) stop("increase must be > 0");
+    const std::size_t N = (std::size_t)res * res;
+    int r;
+    const std::vector<double> kern = makeKernel(sigma, res, r);
+
+    // incident edges of every node
+    std::vector<std::vector<int> > incident(n);
+    for (int k = 0; k < e; ++k) {
+        incident[edge_index(k, 0) - 1].push_back(k);
+        incident[edge_index(k, 1) - 1].push_back(k);
+    }
+    int measured = 0;
+    for (int u = 0; u < n; ++u) if (weights[u] > 0.0) ++measured;
+
+    std::vector<double> sumsq(N, 0.0), num(N), tmp(N);
+    for (int u = 0; u < n; ++u) {
+        if (!(weights[u] > 0.0)) continue;      // not measured: b_u = 0
+        std::fill(num.begin(), num.end(), 0.0);
+        const double fi = (coord(u, 0) - zoomValue) / increase;
+        const double fj = (coord(u, 1) - zoomValue) / increase;
+        if (R_finite(fi) && R_finite(fj))
+            splat(num, NULL, res, fi, fj, 1.0, weights[u]);
+        for (std::size_t q = 0; q < incident[u].size(); ++q) {
+            const int k = incident[u][q];
+            const double w = weights[n + k];
+            if (!(w > 0.0)) continue;
+            const double gi = (coord(n + k, 0) - zoomValue) / increase;
+            const double gj = (coord(n + k, 1) - zoomValue) / increase;
+            if (R_finite(gi) && R_finite(gj))
+                splat(num, NULL, res, gi, gj, 1.0, 0.5 * w);
+        }
+        gaussBlur(num, tmp, res, kern, r);
+        for (int i = 0; i < res; ++i)
+            for (int j = 0; j < res; ++j) {
+                const double d = occupancy(i, j);
+                if (R_IsNA(d)) continue;
+                const double b = num[(std::size_t)i * res + j] / d;
+                sumsq[(std::size_t)i * res + j] += b * b;
+            }
+    }
+    NumericMatrix out(res, res);
+    for (int i = 0; i < res; ++i)
+        for (int j = 0; j < res; ++j) {
+            const double d = occupancy(i, j);
+            if (R_IsNA(d) || measured < 2) { out(i, j) = NA_REAL; continue; }
+            const double v = sumsq[(std::size_t)i * res + j] - 1.0 / measured;
+            out(i, j) = v > 0.0 ? std::sqrt(v) : 0.0;
+        }
+    return out;
+}
+
 //' Index of the node nearest to each grid cell
 //'
 //' Used by the GUI to report which gene a region selected on the landscape

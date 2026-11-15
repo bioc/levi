@@ -10,7 +10,9 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
     p_adjust_method = "BY", region_threshold = 0.1, region_min_cells = 3L,
     .parsed_network = NULL, .draw = TRUE,
     .progress = NULL, inference_unit = c("region", "cell"), perm_strata = NULL,
-    edge_weighting = c("midpoint", "degree", "none")) {
+    edge_weighting = c("midpoint", "degree", "none"),
+    bandwidth_edges = NULL, region_statistic = c("excess", "standardised")) {
+    region_statistic <- match.arg(region_statistic)
     inference_unit <- match.arg(inference_unit)
     edge_weighting <- match.arg(edge_weighting)
     perm_side   <- match.arg(perm_side)
@@ -20,8 +22,11 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
     .validateScalar(sig_level, "sig_level", 0, 1)
     .validateScalar(logfc_k, "logfc_k", .Machine$double.eps)
     .validateScalar(region_threshold, "region_threshold", .Machine$double.eps,
-                    0.5 - .Machine$double.eps)
+                    if (region_statistic == "excess") 0.5 - .Machine$double.eps
+                    else Inf)
     .validateScalar(region_min_cells, "region_min_cells", 1, integer = TRUE)
+    if (!is.null(bandwidth_edges))
+        .validateScalar(bandwidth_edges, "bandwidth_edges", .Machine$double.eps)
 
 
 
@@ -179,41 +184,71 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
     # point (the occupancy at that point relative to an isolated one). For
     # very large networks the total weight is used as an upper bound instead
     # of the n x n distance matrix.
-    sigmaCoord <- sigmaCells * 1.4 / (resolutionValue - 1)
-    stackWeight <- if (nrow(coord) <= 3000L) {
-        d2 <- as.matrix(stats::dist(coord))^2
-        max(colSums(support_weights * exp(-d2 / (2 * sigmaCoord^2))))
-    } else sum(support_weights)
-    stackWeight <- max(stackWeight, 1)
-    reachCells <- sigmaCells * sqrt(2 * log(stackWeight / occFrac)) + 1
-    denominator <- resolutionValue - 1 - 2 * reachCells
-    reachMargin <- if (denominator > 0) reachCells / denominator else 1
-    reachMargin <- min(reachMargin, 1)
-    gridFor <- function(margin) {
-        zoomValue <- -margin
-        list(zoom = zoomValue, increase = (1 + 2 * margin) / (resolutionValue - 1))
+    # The frame depends on the kernel width (through the reach of the
+    # silhouette), so it is built by a function of sigmaCells.
+    buildGrid <- function(sigmaCells) {
+        sigmaCoord <- sigmaCells * 1.4 / (resolutionValue - 1)
+        stackWeight <- if (nrow(coord) <= 3000L) {
+            d2 <- as.matrix(stats::dist(coord))^2
+            max(colSums(support_weights * exp(-d2 / (2 * sigmaCoord^2))))
+        } else sum(support_weights)
+        stackWeight <- max(stackWeight, 1)
+        reachCells <- sigmaCells * sqrt(2 * log(stackWeight / occFrac)) + 1
+        denominator <- resolutionValue - 1 - 2 * reachCells
+        reachMargin <- if (denominator > 0) reachCells / denominator else 1
+        reachMargin <- min(reachMargin, 1)
+        gridFor <- function(margin) {
+            zoomValue <- -margin
+            list(zoom = zoomValue, increase = (1 + 2 * margin) / (resolutionValue - 1))
+        }
+        # That bound is generous, so the silhouette is measured once on the
+        # generous grid (occupancy depends on coordinates and weights only, not
+        # on the signal) and the frame is tightened to what it actually needs,
+        # plus two cells of safety. zoom 100 then frames the silhouette exactly
+        # and zoom 0 adds 20% of the network extent around it.
+        probeGrid <- gridFor(reachMargin)
+        dummy <- matrix(0.5, nrow(coord), 1L)
+        probe <- landscape_gauss(coord = coord, SignalOut = dummy, signalExp = dummy,
+            signalCtrl = dummy, resolutionValue = resolutionValue,
+            zoomValue = probeGrid$zoom, increase = probeGrid$increase,
+            sigma = sigmaCells, occFrac = occFrac, weights = support_weights)$m1
+        inside <- which(!is.na(probe), arr.ind = TRUE)
+        if (nrow(inside)) {
+            lo <- probeGrid$zoom + (apply(inside, 2, min) - 1) * probeGrid$increase
+            hi <- probeGrid$zoom + (apply(inside, 2, max) - 1) * probeGrid$increase
+            needed <- max(0, -lo, hi - 1) + 2 * probeGrid$increase
+            reachMargin <- min(needed, reachMargin)
+        }
+        finalGrid <- gridFor(reachMargin + 0.2 * (1 - zoomFraction))
+        list(sigmaCells = sigmaCells, zoom = finalGrid$zoom,
+             increase = finalGrid$increase)
     }
-    # That bound is generous, so the silhouette is measured once on the
-    # generous grid (occupancy depends on coordinates and weights only, not
-    # on the signal) and the frame is tightened to what it actually needs,
-    # plus two cells of safety. zoom 100 then frames the silhouette exactly
-    # and zoom 0 adds 20% of the network extent around it.
-    probeGrid <- gridFor(reachMargin)
-    dummy <- matrix(0.5, nrow(coord), 1L)
-    probe <- landscape_gauss(coord = coord, SignalOut = dummy, signalExp = dummy,
-        signalCtrl = dummy, resolutionValue = resolutionValue,
-        zoomValue = probeGrid$zoom, increase = probeGrid$increase,
-        sigma = sigmaCells, occFrac = occFrac, weights = support_weights)$m1
-    inside <- which(!is.na(probe), arr.ind = TRUE)
-    if (nrow(inside)) {
-        lo <- probeGrid$zoom + (apply(inside, 2, min) - 1) * probeGrid$increase
-        hi <- probeGrid$zoom + (apply(inside, 2, max) - 1) * probeGrid$increase
-        needed <- max(0, -lo, hi - 1) + 2 * probeGrid$increase
-        reachMargin <- min(needed, reachMargin)
+    grid <- buildGrid(sigmaCells)
+    if (!is.null(bandwidth_edges)) {
+        # Kernel width as a multiple of the median edge length, so the same
+        # number means the same neighbourhood on any network and at any
+        # zoom. The width in grid cells follows the frame (the cell size is
+        # set by the margin, which depends on the width), hence the fixed-
+        # point iteration, which settles in a few steps.
+        edge_len <- sqrt(rowSums((coord[edge_index[, 1], , drop = FALSE] -
+                                  coord[edge_index[, 2], , drop = FALSE])^2))
+        target <- bandwidth_edges * stats::median(edge_len[edge_len > 0])
+        if (!is.finite(target) || target <= 0)
+            stop("'bandwidth_edges' needs a network with at least one edge ",
+                 "of non-zero length.", call. = FALSE)
+        # Damped (geometric mean of the old and the new width): the frame is
+        # tightened to the silhouette in whole cells, so a plain iteration can
+        # alternate between two neighbouring frames.
+        for (iter in 1:25) {
+            achieved <- sigmaCells * grid$increase
+            if (abs(achieved / target - 1) < 1e-4) break
+            sigmaCells <- max(sqrt(sigmaCells * target / grid$increase), 0.35)
+            grid <- buildGrid(sigmaCells)
+        }
+        sigmaCells <- grid$sigmaCells
     }
-    finalGrid <- gridFor(reachMargin + 0.2 * (1 - zoomFraction))
-    zoomValue <- finalGrid$zoom
-    increase <- finalGrid$increase
+    zoomValue <- grid$zoom
+    increase <- grid$increase
 
 
     for (k in seq(2,length(readExpColumn))) {
@@ -413,9 +448,29 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
             matrixOut, coord, nnodes, nodesCoord,
             zoomValue, increase, resolutionValue
         )
+        # The region statistic. "standardised" replaces the landscape by the
+        # field 0.5 + Z, Z being the deviation from the mean node signal in
+        # units of its standard deviation under node-label permutation.
+        region_field <- NULL
+        field_geometry <- NULL
+        measured_nodes <- support_weights_k[seq_len(nnodes)] > 0
+        if (region_statistic == "standardised") {
+            occupancy <- landscape_occupancy(coord, resolutionValue, zoomValue,
+                increase, sigmaCells, occFrac, support_weights_k)
+            field_geometry <- landscape_null_scale(coord,
+                matrix(as.integer(edge_index), ncol = 2L), occupancy,
+                resolutionValue, zoomValue, increase, sigmaCells,
+                support_weights_k)
+            region_field <- function(m1, signal)
+                .standardiseField(m1, signal[seq_len(nnodes)][measured_nodes],
+                                  field_geometry)
+        }
         regions <- .extractLandscapeRegions(
-            matrixOut, zoomValue, increase,
-            threshold = region_threshold, min_cells = region_min_cells)
+            if (is.null(region_field)) matrixOut else
+                region_field(matrixOut, SignalOut),
+            zoomValue, increase, threshold = region_threshold,
+            min_cells = region_min_cells,
+            standardised = region_statistic == "standardised")
 
         # -- 3. Permutation significance test --
         pvalMatrix <- rawPvalues <- NULL
@@ -443,7 +498,8 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
                 logfc_k         = logfc_k,
                 regions         = if (inference_unit == "region") regions else NULL,
                 perm_strata     = resolved_strata,
-                weights         = support_weights_k)
+                weights         = support_weights_k,
+                region_field    = region_field)
             if (inference_unit == "region") {
                 regions <- pvalMatrix
                 pvalMatrix <- NULL
@@ -549,11 +605,15 @@ levi_function <- function(expressionInput, fileTypeInput, networkCoordinatesInpu
                     node_coordinates = nodeCoordNorm,
                     node_signal = as.numeric(SignalOut[seq_len(nnodes), 1]),
                     edge_weighting = edge_weighting,
+                    bandwidth_edges = bandwidth_edges,
                     support_weights = support_weights_k,
                     grid = list(resolution = resolutionValue, zoom = zoomValue,
                                 increase = increase, sigma = sigmaCells, occupancy = occFrac),
                     region_threshold = region_threshold,
                     region_min_cells = region_min_cells,
+                    region_statistic = region_statistic,
+                    field_geometry = field_geometry,
+                    field_nodes = measured_nodes,
                     region_definition = "8-connected grid cells beyond neutral score",
                     diagnostics = .networkDiagnostics(nodeCoordNorm, edge_index,
                         sigmaCells * increase, matrixOut),

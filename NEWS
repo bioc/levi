@@ -50,6 +50,20 @@ Behaviour changes (these alter landscapes and regional P-values)
       unaffected.
 
 New options (default behaviour and P-values unchanged)
+    o levi(region_statistic = "standardised") measures a region on the
+      landscape standardised by its standard deviation under node-label
+      permutation, computed analytically from the layout and the weights
+      (landscape_null_scale(); it matches the permutation value to within a
+      few per cent). A fixed excess over 0.5 favours sparse parts of the
+      network, where the null surface varies most. The threshold is then in
+      standard deviations (default 2), mass and PeakScore are on the 0.5 + Z
+      scale, and the same field is used by the node-label and sample-label
+      tests. The default, "excess", is unchanged; the displayed landscape is
+      the same either way.
+    o levi(bandwidth_edges = ) sets the kernel width as a multiple of the
+      median edge length, independent of the network and of the zoom;
+      smoothValueInput is ignored when it is given. The default keeps the
+      slider.
     o The graph and pseudobulk tests take 'sig_level' (default 0.05) for
       their Significant and GlobalSignificant flags; it also feeds the
       warning about the smallest attainable P-value. It does not change any

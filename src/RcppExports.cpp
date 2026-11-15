@@ -62,6 +62,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// landscape_null_scale
+NumericMatrix landscape_null_scale(NumericMatrix coord, IntegerMatrix edge_index, NumericMatrix occupancy, int resolutionValue, double zoomValue, double increase, double sigma, NumericVector weights);
+RcppExport SEXP _levi_landscape_null_scale(SEXP coordSEXP, SEXP edge_indexSEXP, SEXP occupancySEXP, SEXP resolutionValueSEXP, SEXP zoomValueSEXP, SEXP increaseSEXP, SEXP sigmaSEXP, SEXP weightsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type coord(coordSEXP);
+    Rcpp::traits::input_parameter< IntegerMatrix >::type edge_index(edge_indexSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type occupancy(occupancySEXP);
+    Rcpp::traits::input_parameter< int >::type resolutionValue(resolutionValueSEXP);
+    Rcpp::traits::input_parameter< double >::type zoomValue(zoomValueSEXP);
+    Rcpp::traits::input_parameter< double >::type increase(increaseSEXP);
+    Rcpp::traits::input_parameter< double >::type sigma(sigmaSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type weights(weightsSEXP);
+    rcpp_result_gen = Rcpp::wrap(landscape_null_scale(coord, edge_index, occupancy, resolutionValue, zoomValue, increase, sigma, weights));
+    return rcpp_result_gen;
+END_RCPP
+}
 // nearest_node_grid
 IntegerMatrix nearest_node_grid(NumericMatrix coordNodes, int resolutionValue, double zoomValue, double increase);
 RcppExport SEXP _levi_nearest_node_grid(SEXP coordNodesSEXP, SEXP resolutionValueSEXP, SEXP zoomValueSEXP, SEXP increaseSEXP) {
@@ -107,6 +124,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_levi_landscape_gauss", (DL_FUNC) &_levi_landscape_gauss, 10},
     {"_levi_landscape_occupancy", (DL_FUNC) &_levi_landscape_occupancy, 7},
     {"_levi_landscape_m1", (DL_FUNC) &_levi_landscape_m1, 8},
+    {"_levi_landscape_null_scale", (DL_FUNC) &_levi_landscape_null_scale, 8},
     {"_levi_nearest_node_grid", (DL_FUNC) &_levi_nearest_node_grid, 4},
     {"_levi_max_region_mass", (DL_FUNC) &_levi_max_region_mass, 4},
     {"_levi_tfce_side", (DL_FUNC) &_levi_tfce_side, 5},

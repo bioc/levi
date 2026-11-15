@@ -242,7 +242,8 @@
         sqrt(rowSums((node_coordinates[edge_index[, 1], , drop = FALSE] -
                       node_coordinates[edge_index[, 2], , drop = FALSE])^2))
     else numeric(0)
-    median_len <- if (length(edge_len)) stats::median(edge_len) else NA_real_
+    positive <- edge_len[edge_len > 0]
+    median_len <- if (length(positive)) stats::median(positive) else NA_real_
     list(n_nodes = n, n_edges = nrow(edge_index),
          n_components = comp$no,
          largest_component_fraction = max(comp$csize) / n,
@@ -251,6 +252,34 @@
          median_edge_length = median_len,
          sigma_in_edge_lengths = sigma_coord / median_len,
          silhouette_fraction = mean(!is.na(landscape)))
+}
+
+# Standardised landscape field for regions. S(x) minus the mean node signal,
+# divided by sd(node signals) * the layout geometry g(x) from
+# landscape_null_scale(), shifted to 0.5 so that the region code can keep
+# treating 0.5 as neutral. The mean and the standard deviation are those of
+# the node signals of the data at hand: invariant under a node-label
+# permutation, recomputed in every sample-label permutation. A constant
+# signal has no spread to standardise by and gives the neutral field.
+.standardiseField <- function(m1, node_signal, geometry) {
+    spread <- stats::sd(node_signal)
+    if (!is.finite(spread) || spread == 0) {
+        m1[!is.na(m1)] <- 0.5
+        return(m1)
+    }
+    z <- (m1 - mean(node_signal)) / (spread * geometry)
+    z[!is.na(z) & !is.finite(z)] <- 0
+    0.5 + z
+}
+
+# The region field of a result's metadata, as function(m1, signal).
+.regionField <- function(metadata) {
+    if (!identical(metadata$region_statistic, "standardised"))
+        return(function(m1, signal) m1)
+    function(m1, signal)
+        .standardiseField(m1,
+            signal[seq_along(metadata$field_nodes)][metadata$field_nodes],
+            metadata$field_geometry)
 }
 
 # Significance level shared by the graph and pseudobulk tests.

@@ -194,8 +194,10 @@ leviReplicateInference <- function(expression, groups, gene_ids = rownames(expre
     landscape_of <- .m1Landscape(coord, grid$resolution, grid$zoom,
         grid$increase, grid$sigma, grid$occupancy,
         observed$metadata$support_weights %||% numeric(0))
+    field_of <- .regionField(observed$metadata)
     null <- .permutationNull(perms$labels, function(perm) {
-        z <- landscape_of(project(effect(perm)))
+        signal <- project(effect(perm))
+        z <- field_of(landscape_of(signal), signal)
         .maximumRegionMass(z, grid$increase,
             observed$metadata$region_threshold,
             observed$metadata$region_min_cells)

@@ -341,7 +341,8 @@ leviSingleCellRegionalInference <- function(counts, donor, cell_type,
             node_lfc <- unname(mean_lfc(expression[[tp]], g)[node_names])
             signal <- .networkSignals(cbind(node_lfc, node_lfc), edges, TRUE,
                                       "logfc", k)$signal
-            z <- landscape_of(signal)
+            z <- .regionField(landscapes[[tp]]$metadata)(landscape_of(signal),
+                                                         signal)
             .maximumRegionMass(z, grid$increase,
                 landscapes[[tp]]$metadata$region_threshold,
                 landscapes[[tp]]$metadata$region_min_cells)

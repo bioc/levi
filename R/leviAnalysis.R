@@ -392,10 +392,13 @@ leviDiff <- function(result_a, result_b,
 # separate from peak detection: a broad component can be a region even when it
 # has no unique local maximum.
 .extractLandscapeRegions <- function(matrixOut, zoomValue, increase,
-                                     threshold = 0.1, min_cells = 3L) {
+                                     threshold = 0.1, min_cells = 3L,
+                                     standardised = FALSE) {
     if (!is.numeric(threshold) || length(threshold) != 1L ||
-        !is.finite(threshold) || threshold <= 0 || threshold >= 0.5)
-        stop("'region_threshold' must be a number strictly between 0 and 0.5.",
+        !is.finite(threshold) || threshold <= 0 ||
+        (!standardised && threshold >= 0.5))
+        stop(if (standardised) "'region_threshold' must be a positive number." else
+             "'region_threshold' must be a number strictly between 0 and 0.5.",
              call. = FALSE)
     if (!is.numeric(min_cells) || length(min_cells) != 1L ||
         !is.finite(min_cells) || min_cells < 1 || min_cells != floor(min_cells))

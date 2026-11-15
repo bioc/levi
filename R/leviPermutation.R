@@ -16,7 +16,7 @@
                                 progress = NULL, node_values = NULL, edge_index = NULL,
                                 single_col = FALSE, signal_mode = "ratio",
                                 logfc_k = 1, regions = NULL, perm_strata = NULL,
-                                weights = numeric(0)) {
+                                weights = numeric(0), region_field = NULL) {
     numberCoord <- nrow(coord)
 
     # Only two counts per cell are ever needed, so they are accumulated as the
@@ -62,7 +62,9 @@
         if (regional) {
             # Redetect components in every randomisation: the observed areas
             # must not be treated as regions specified before seeing the data.
-            null_max[p, ] <- .maximumRegionMass(m1_p, increase,
+            field_p <- if (is.null(region_field)) m1_p else
+                region_field(m1_p, signals$signal)
+            null_max[p, ] <- .maximumRegionMass(field_p, increase,
                 regions$threshold, regions$min_cells)
         } else {
             countOver  <- countOver  + (m1_p >= matrixOut)
