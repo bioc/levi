@@ -4,14 +4,17 @@
 \alias{leviFromLimma}
 \title{leviFromLimma}
 \usage{
-leviFromLimma(fit, coef = 1, gene_col = "GeneID")
+leviFromLimma(fit, coef = NULL, gene_col = "GeneID")
 }
 \arguments{
 \item{fit}{A \code{MArrayLM} object after \code{limma::eBayes()}, or any
 \code{data.frame} with columns \code{logFC} and \code{AveExpr}.}
 
-\item{coef}{Integer or character. Coefficient to extract (used only when
-\code{fit} is a limma object). Default is \code{1}.}
+\item{coef}{Integer or character. Coefficient (or contrast) to extract,
+used only when \code{fit} is a limma object. Required when the fit has more
+than one coefficient. An intercept is refused: in a design such as
+\code{~ group} the first coefficient is the baseline mean, not a log
+fold-change.}
 
 \item{gene_col}{Character. Name for the gene identifier column.
 Default is \code{"GeneID"}.}
@@ -36,6 +39,7 @@ head(expr_df)
 \dontrun{
 library(limma)
 fit2 <- eBayes(fit)
-expr_df <- leviFromLimma(fit2, coef = 1, gene_col = "GeneSymbol")
+# design <- model.matrix(~ group); fit <- lmFit(y, design)
+expr_df <- leviFromLimma(fit2, coef = "groupT", gene_col = "GeneSymbol")
 }
 }

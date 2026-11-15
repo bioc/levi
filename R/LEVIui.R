@@ -1,4 +1,4 @@
-﻿#' @title LEVIui - Interactive Shiny GUI for levi
+#' @title LEVIui - Interactive Shiny GUI for levi
 #'
 #' @description Launch the \pkg{levi} graphical user interface (GUI) locally
 #' via Shiny. The GUI exposes all parameters available in script mode and
@@ -34,8 +34,7 @@
 #'
 #' @seealso \code{\link{levi}}, \code{\link{readExpColumn}}
 #'
-#' @author Jose Rafael Pilan \email{rafael.pilan@@unesp.br},
-#'   Isabelle Mira da Silva
+#' @author Jose Rafael Pilan \email{rafael.pilan@@unesp.br}
 #'
 #' @examples
 #' if (interactive()) {

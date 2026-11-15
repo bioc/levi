@@ -52,6 +52,5 @@ if (interactive()) {
 \code{\link{levi}}, \code{\link{readExpColumn}}
 }
 \author{
-Jose Rafael Pilan \email{rafael.pilan@unesp.br},
-  Isabelle Mira da Silva
+Jose Rafael Pilan \email{rafael.pilan@unesp.br}
 }

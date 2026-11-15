@@ -362,7 +362,7 @@ test_that("a warning does not abort the computation", {
             signal_mode = "ratio", logfc_k = 1, setcolor = "pp",
             palette = "multi", contour = FALSE, plot3d = FALSE,
             geneSearch = "", showPeakLabels = FALSE)
-        session$setInputs(action = 1)
+        suppressWarnings(session$setInputs(action = 1))
 
         expect_equal(nrow(v$scoreTable), 9)
     })

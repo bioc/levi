@@ -25,6 +25,35 @@ landscape_gauss <- function(coord, SignalOut, signalExp, signalCtrl, resolutionV
     .Call('_levi_landscape_gauss', PACKAGE = 'levi', coord, SignalOut, signalExp, signalCtrl, resolutionValue, zoomValue, increase, sigma, occFrac, weights)
 }
 
+#' Smoothed occupancy of the network, for repeated one-channel landscapes
+#'
+#' The occupancy depends only on the coordinates and the support weights, not
+#' on the signal, so the permutation loops compute it once and reuse it
+#' through \code{landscape_m1()}.
+#'
+#' @inheritParams landscape_gauss
+#' @return Resolution x resolution matrix with the smoothed occupancy where it
+#'   exceeds the silhouette threshold and NA elsewhere.
+#' @keywords internal
+landscape_occupancy <- function(coord, resolutionValue, zoomValue, increase, sigma, occFrac, weights = numeric(0)) {
+    .Call('_levi_landscape_occupancy', PACKAGE = 'levi', coord, resolutionValue, zoomValue, increase, sigma, occFrac, weights)
+}
+
+#' Combined-signal landscape with a precomputed occupancy
+#'
+#' Returns exactly the \code{m1} matrix of \code{landscape_gauss()} for the
+#' same arguments, at the cost of one blur instead of four.
+#'
+#' @inheritParams landscape_gauss
+#' @param signal numeric vector with the combined signal of every point.
+#' @param occupancy matrix from \code{landscape_occupancy()} for the same
+#'   coordinates, grid, sigma and weights.
+#' @return Resolution x resolution matrix; NA outside the silhouette.
+#' @keywords internal
+landscape_m1 <- function(coord, signal, occupancy, resolutionValue, zoomValue, increase, sigma, weights = numeric(0)) {
+    .Call('_levi_landscape_m1', PACKAGE = 'levi', coord, signal, occupancy, resolutionValue, zoomValue, increase, sigma, weights)
+}
+
 #' Index of the node nearest to each grid cell
 #'
 #' Used by the GUI to report which gene a region selected on the landscape
@@ -40,5 +69,9 @@ landscape_gauss <- function(coord, SignalOut, signalExp, signalCtrl, resolutionV
 #' @keywords internal
 nearest_node_grid <- function(coordNodes, resolutionValue, zoomValue, increase) {
     .Call('_levi_nearest_node_grid', PACKAGE = 'levi', coordNodes, resolutionValue, zoomValue, increase)
+}
+
+tfce_side <- function(v, edges, E, H, n_steps) {
+    .Call('_levi_tfce_side', PACKAGE = 'levi', v, edges, E, H, n_steps)
 }
 

@@ -1,5 +1,4 @@
 ^Readme\.md$
-^LICENSE\.txt$
 ^CONTRIBUTING\.md$
 ^\.Rbuildignore$
 ^.*\.Rproj$
@@ -8,3 +7,6 @@
 ^.*\.BiocCheck$
 ^.*\.tar\.gz$
 ^[^/]*\.png$
+^vignettes/.*\.html$
+^vignettes/.*_files$
+^tests/testthat/Rplots\.pdf$

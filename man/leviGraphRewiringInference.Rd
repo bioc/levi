@@ -49,6 +49,18 @@ obtained on degree-preserving rewired networks. This tests whether the
 clustering depends on the specific wiring rather than on the degree
 sequence.
 }
+\section{Null hypothesis}{
+
+The null distribution comes from degree-preserving rewirings of the
+network with the scores held fixed. It asks whether the observed wiring
+groups the scores more than a random graph with the same degrees would,
+which is a statement about the network, not about the response to a
+condition. Its rejection rate with scores unrelated to the graph varied
+between topologies in simulations (0.005 to 0.045 at alpha = 0.05), and it
+shares the co-expression caveat of the node-label tests. Treat it as a
+descriptive sensitivity analysis.
+}
+
 \examples{
 network <- data.frame(ID = c("A", "B", "C", "D"), X = 1:4, Y = 1:4)
 edges <- data.frame(V1 = c("A", "B", "C", "D"), V2 = c("B", "C", "D", "A"))

@@ -11,6 +11,8 @@
 
 **Maintainer:** José L. Rybarczyk-Filho
 
+**License:** GPL (>= 2)
+
 ## Summary
 The integration of biological data emerges as a powerful tool for extracting information capable
 of describing the biological system in greater detail. The use of transcriptomic data has become

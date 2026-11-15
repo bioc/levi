@@ -77,8 +77,15 @@ A list of interaction TFCE tables and the joint donor-label null
 }
 \description{
 Tests whether the condition effect in each non-reference cell type differs
-from the reference type. Labels are exchanged within donors jointly over all
-cell types, avoiding cell-level pseudoreplication.
+from the reference type. For every donor the interaction contrast
+\eqn{(y_{stim} - y_{ctrl})_{type} - (y_{stim} - y_{ctrl})_{reference}} is
+formed on TMM log2 CPM pseudobulks and tested with a limma-trend
+one-sample moderated t. A condition effect shared by all cell types
+cancels in the contrast, so swapping the condition labels inside a donor
+(jointly over all cell types) flips the sign of that donor's contrast and
+is a valid null for "no interaction" even when the main effect is large.
+Cell types are aligned on the genes they share. Every donor must have
+both conditions in every analysed cell type.
 }
 \examples{
 if (requireNamespace("limma", quietly = TRUE)) {

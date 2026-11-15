@@ -15,11 +15,28 @@
 # Smith & Nichols (2009) TFCE with network components as clusters. Returns a
 # nodes x 2 matrix with the "over" (positive) and "under" (negative) scores.
 #
+# Components are tracked by union-find in C++ (src/tfce.cpp) as the threshold
+# falls, which makes a call roughly two orders of magnitude cheaper than the
+# R reference .tfceR() below; the two agree to rounding error. This routine
+# runs once per permutation draw, so it dominates every TFCE test.
+.tfce <- function(statistic, nodes, edges, E = .5, H = 2, n_steps = 100L) {
+    x <- as.numeric(statistic[nodes])
+    ans <- matrix(0, length(nodes), 2,
+                  dimnames = list(nodes, c("over", "under")))
+    e0 <- matrix(as.integer(edges) - 1L, ncol = 2L)
+    ans[, 1L] <- tfce_side(pmax(x, 0), e0, E, H, as.integer(n_steps))
+    ans[, 2L] <- tfce_side(pmax(-x, 0), e0, E, H, as.integer(n_steps))
+    ans
+}
+
+# Reference implementation of .tfce() in plain R (igraph components at each
+# threshold). The package uses the C++ version; tests compare the two.
+#
 # The graph is built once per call and the components are recomputed only
 # when the active set changes between consecutive thresholds: with a few
 # nodes most of the n_steps thresholds share the same active set, and this
 # routine runs once per permutation draw.
-.tfce <- function(statistic, nodes, edges, E = .5, H = 2, n_steps = 100L) {
+.tfceR <- function(statistic, nodes, edges, E = .5, H = 2, n_steps = 100L) {
     x <- as.numeric(statistic[nodes])
     ans <- matrix(0, length(nodes), 2,
                   dimnames = list(nodes, c("over", "under")))
@@ -102,6 +119,8 @@ leviGraphTFCEInference <- function(expression, groups, networkCoordinatesInput,
     if (!is.null(seed)) withr::local_seed(seed)
     ni <- .networkIndex(networkCoordinatesInput, networkInteractionsInput,
                         fileTypeInput)
+    .checkExpressionInput(rownames(expression), ni$nodes, groups, test,
+                          control, n_perm)
     levels <- c(control, test)
     statistic <- function(g) .moderatedT(expression, g, levels, blocks)
 
@@ -138,7 +157,19 @@ leviGraphTFCEInference <- function(expression, groups, networkCoordinatesInput,
 #'
 #' Computes global Moran's I and local Moran's I for gene scores using the
 #' binary adjacency of the biological network, with hotspot classes and
-#' node-label permutation P-values.
+#' node-label permutation P-values. The global test shuffles all scores; the
+#' local test uses conditional permutation (each node keeps its own score
+#' and its neighbours are drawn from the remaining scores), as in
+#' `spdep::localmoran_perm()`. Both P-values are two-sided around the null
+#' expectation of the statistic.
+#'
+#' Node-label permutation treats the gene scores as exchangeable. Genes that
+#' are neighbours in a biological network are usually co-expressed, and
+#' their scores are correlated even when the condition has no effect, so a
+#' small P-value says that the scores are autocorrelated on the network,
+#' not that the condition produced a module. Use a sample-label test
+#' ([leviGraphTFCEInference()], [leviGraphClusterInference()]) for that
+#' question.
 #' @param scores Named numeric vector of gene scores (for example moderated
 #'   t-statistics or log fold-changes) indexed by gene identifier. Network
 #'   nodes without a finite score are dropped before testing.
@@ -167,23 +198,48 @@ leviGraphMoran <- function(scores, networkCoordinatesInput,
     n <- length(a$x)
     W <- .adjacencyMatrix(n, a$edges)
 
-    # Global I and the local I of every node, in one vector.
+    # Global I and the local I of every node, in one vector. Each null draw
+    # is one random order of the nodes. The global I is recomputed on the
+    # scores in that order (total permutation). The local I uses the
+    # conditional permutation of Anselin (1995), the default of spdep and
+    # GeoDa: node i keeps its own value and only its neighbours are drawn,
+    # without replacement, from the other n - 1 values. Shuffling the node's
+    # own value as well, as the earlier version did, mixed "extreme node"
+    # with "clustered node" and called an outlying node with iid neighbours
+    # significant in about half of null data sets. For node i of degree k the
+    # first k + 1 positions of the random order, minus i itself when it is
+    # among them (or minus the last of them otherwise), are a uniform
+    # k-subset of the other nodes, so one order serves every node in O(n).
     total_weight <- sum(W)
-    statistic <- function(x) {
+    zs <- as.numeric(scale(a$x))
+    degree <- Matrix::rowSums(W)
+    take <- pmin(degree + 1, n)
+    globalI <- function(x) {
         z <- x - mean(x)
-        global <- n / total_weight * .quadraticForm(z, W) / sum(z^2)
-        zs <- as.numeric(scale(x))
-        c(global, zs * as.numeric(W %*% zs))
+        n / total_weight * .quadraticForm(z, W) / sum(z^2)
     }
-    observed <- statistic(a$x)
-    null <- .permutationNull(.nodeShuffles(a$x, n_perm), statistic,
+    observed <- c(globalI(a$x), zs * as.numeric(W %*% zs))
+    statistic <- function(order) {
+        zp <- zs[order]
+        position <- integer(n)
+        position[order] <- seq_len(n)
+        drop <- ifelse(position <= take, zs, zp[take])
+        c(globalI(a$x[order]), zs * (cumsum(zp)[take] - drop))
+    }
+    null <- .permutationNull(.nodeShuffles(seq_len(n), n_perm), statistic,
                              BPPARAM = BPPARAM)
 
-    # Two-sided p-values: |I| under the null at least as large as observed.
-    p <- (1 + colSums(abs(null) >= rep(abs(observed), each = nrow(null)))) /
+    # Two-sided p-values centred on the null expectations: E[I] = -1/(n - 1)
+    # for the global statistic and E[I_i] = -k_i z_i^2 / (n - 1) for node i
+    # under the conditional permutation.
+    expected <- c(-1 / (n - 1), -degree * zs^2 / (n - 1))
+    dev_null <- abs(null - rep(expected, each = nrow(null)))
+    dev_obs <- abs(observed - expected)
+    tolerance <- 1e-12 * pmax(1, dev_obs)
+    p <- (1 + colSums(dev_null >= rep(dev_obs - tolerance,
+                                      each = nrow(null)))) /
         (nrow(null) + 1)
 
-    degree <- Matrix::rowSums(W)
     neighbour_mean <- ifelse(degree > 0, as.numeric(W %*% a$x) / degree, NA)
     centre <- mean(a$x)
     class <- ifelse(a$x >= centre,
@@ -196,7 +252,8 @@ leviGraphMoran <- function(scores, networkCoordinatesInput,
         local = data.frame(Gene = a$nodes, I = observed[-1], Class = class,
                            P = p[-1],
                            PAdjusted = stats::p.adjust(p[-1], "BH")),
-        method = "node-label permutation")
+        method = paste("node-label permutation (global);",
+                       "conditional permutation (local)"))
 }
 
 #' Getis-Ord hotspots and coldspots on a biological graph
@@ -205,6 +262,17 @@ leviGraphMoran <- function(scores, networkCoordinatesInput,
 #' node itself in its neighbourhood, and assigns one-sided node-label
 #' permutation P-values for hotspots and coldspots. A node adjacent to every
 #' other node has no variance to compare against and receives `NA`.
+#' @section Null hypothesis:
+#' Node-label permutation treats the gene scores as exchangeable over the
+#' nodes. Neighbouring genes in a biological network are usually
+#' co-expressed, so their scores are correlated even when the condition has
+#' no effect, and in simulations with co-expressed neighbours and no
+#' differential expression these tests rejected far above the nominal level.
+#' A small P-value therefore describes the arrangement of the scores on the
+#' network (autocorrelation, given the values), not a response to the
+#' condition. When replicate samples are available, use a sample-label test
+#' ([leviGraphTFCEInference()], [leviGraphClusterInference()]) to ask whether
+#' the condition changed a region of the network.
 #' @inheritParams leviGraphMoran
 #' @return A data frame of local Getis--Ord Gi* scores with one-sided
 #'   permutation P-values for each direction, the two-sided P-value (twice the
@@ -265,6 +333,17 @@ leviGraphGetisOrd <- function(scores, networkCoordinatesInput,
 #' of a score column in an interaction data frame). It lets STRING confidence
 #' scores contribute to neighbourhood and smoothness calculations.
 #'
+#' @section Null hypothesis:
+#' Node-label permutation treats the gene scores as exchangeable over the
+#' nodes. Neighbouring genes in a biological network are usually
+#' co-expressed, so their scores are correlated even when the condition has
+#' no effect, and in simulations with co-expressed neighbours and no
+#' differential expression these tests rejected far above the nominal level.
+#' A small P-value therefore describes the arrangement of the scores on the
+#' network (autocorrelation, given the values), not a response to the
+#' condition. When replicate samples are available, use a sample-label test
+#' ([leviGraphTFCEInference()], [leviGraphClusterInference()]) to ask whether
+#' the condition changed a region of the network.
 #' @inheritParams leviGraphMoran
 #' @param networkCoordinatesInput,networkInteractionsInput,fileTypeInput LEVI
 #'   network inputs. `networkInteractionsInput` must be supplied because the
@@ -345,6 +424,17 @@ leviGraphWeightedTopology <- function(scores, networkCoordinatesInput,
 #' The spectral basis requires a full eigendecomposition of the Laplacian,
 #' computed once; the cost grows with the cube of the node count, so the test
 #' is intended for pathway-scale networks (up to a few thousand nodes).
+#' @section Null hypothesis:
+#' Node-label permutation treats the gene scores as exchangeable over the
+#' nodes. Neighbouring genes in a biological network are usually
+#' co-expressed, so their scores are correlated even when the condition has
+#' no effect, and in simulations with co-expressed neighbours and no
+#' differential expression these tests rejected far above the nominal level.
+#' A small P-value therefore describes the arrangement of the scores on the
+#' network (autocorrelation, given the values), not a response to the
+#' condition. When replicate samples are available, use a sample-label test
+#' ([leviGraphTFCEInference()], [leviGraphClusterInference()]) to ask whether
+#' the condition changed a region of the network.
 #' @inheritParams leviGraphMoran
 #' @return A one-row data frame of Laplacian energy, low-frequency energy ratio
 #'   and node-label permutation P-values.
@@ -397,6 +487,15 @@ leviGraphSpectrum <- function(scores, networkCoordinatesInput,
 #' obtained on degree-preserving rewired networks. This tests whether the
 #' clustering depends on the specific wiring rather than on the degree
 #' sequence.
+#' @section Null hypothesis:
+#' The null distribution comes from degree-preserving rewirings of the
+#' network with the scores held fixed. It asks whether the observed wiring
+#' groups the scores more than a random graph with the same degrees would,
+#' which is a statement about the network, not about the response to a
+#' condition. Its rejection rate with scores unrelated to the graph varied
+#' between topologies in simulations (0.005 to 0.045 at alpha = 0.05), and it
+#' shares the co-expression caveat of the node-label tests. Treat it as a
+#' descriptive sensitivity analysis.
 #' @inheritParams leviGraphMoran
 #' @param threshold Absolute score threshold for cluster formation.
 #' @param n_perm Number of rewired null networks.
@@ -438,6 +537,15 @@ leviGraphRewiringInference <- function(scores, networkCoordinatesInput,
 #'
 #' Computes graph TFCE scores for fixed gene scores and compares them with the
 #' TFCE maxima obtained on degree-preserving rewired networks.
+#' @section Null hypothesis:
+#' The null distribution comes from degree-preserving rewirings of the
+#' network with the scores held fixed. It asks whether the observed wiring
+#' groups the scores more than a random graph with the same degrees would,
+#' which is a statement about the network, not about the response to a
+#' condition. Its rejection rate with scores unrelated to the graph varied
+#' between topologies in simulations (0.005 to 0.045 at alpha = 0.05), and it
+#' shares the co-expression caveat of the node-label tests. Treat it as a
+#' descriptive sensitivity analysis.
 #' @inheritParams leviGraphRewiringInference
 #' @inheritParams leviGraphTFCEInference
 #' @return A data frame with TFCE scores and degree-preserving rewiring
@@ -518,6 +626,8 @@ leviGraphTFCEFreedmanLane <- function(expression, groups, covariates,
     if (!is.null(seed)) withr::local_seed(seed)
     ni <- .networkIndex(networkCoordinatesInput, networkInteractionsInput,
                         fileTypeInput)
+    .checkExpressionInput(rownames(expression), ni$nodes, groups, test,
+                          control, n_perm)
 
     # Reduced (nuisance-only) and full designs.
     x0 <- stats::model.matrix(~ ., data = as.data.frame(covariates))

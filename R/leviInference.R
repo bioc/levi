@@ -67,6 +67,7 @@ leviAdjustPathways <- function(results, method = "holm", level = 0.05) {
 #' leviRegionGenes(x, top_n = 3)
 #' @export
 leviRegionGenes <- function(result, top_n = 20L) {
+    .checkLeviResult(result)
     cells <- result$regions$cells
     coords <- result$metadata$node_coordinates
     signal <- result$metadata$node_signal
@@ -189,14 +190,11 @@ leviReplicateInference <- function(expression, groups, gene_ids = rownames(expre
         .networkSignals(cbind(node_lfc, node_lfc), edge_index, TRUE,
                         "logfc", k)$signal
     }
+    landscape_of <- .m1Landscape(coord, grid$resolution, grid$zoom,
+        grid$increase, grid$sigma, grid$occupancy,
+        observed$metadata$support_weights %||% numeric(0))
     null <- .permutationNull(perms$labels, function(perm) {
-        signal <- project(effect(perm))
-        z <- landscape_gauss(coord = coord, SignalOut = signal,
-            signalExp = signal, signalCtrl = signal,
-            resolutionValue = grid$resolution, zoomValue = grid$zoom,
-            increase = grid$increase, sigma = grid$sigma,
-            occFrac = grid$occupancy,
-            weights = observed$metadata$support_weights %||% numeric(0))$m1
+        z <- landscape_of(project(effect(perm)))
         .maximumRegionMass(z, grid$increase,
             observed$metadata$region_threshold,
             observed$metadata$region_min_cells)

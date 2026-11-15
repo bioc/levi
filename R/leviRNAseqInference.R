@@ -14,11 +14,15 @@
 #' @param n_perm Number of sample-label permutations.
 #' @param blocks Optional exchangeability blocks.
 #' @param seed Optional RNG seed.
-#' @param refit_dispersions Logical. `FALSE` (default) keeps the size factors
-#'   and dispersions estimated on the observed labels and refits only the
-#'   negative-binomial GLM in each permutation, a test conditional on those
-#'   estimates and considerably faster. `TRUE` re-estimates dispersions in
-#'   every permutation.
+#' @param refit_dispersions Logical. `TRUE` (default) re-runs the whole
+#'   DESeq2 pipeline (size factors, dispersions, GLM) in every permutation, so
+#'   the observed and permuted statistics come from the same procedure and the
+#'   test is exact. `FALSE` keeps the size factors and dispersions estimated on
+#'   the observed labels and refits only the GLM, about an order of magnitude
+#'   faster, but those estimates depend on the observed labels and the test
+#'   then has no level guarantee: in null simulations (4 vs 4, 30 genes) its
+#'   family-wise error rate was about three times the attainable level. Use it
+#'   for exploration only.
 #' @param BPPARAM A [BiocParallel::BiocParallelParam] object controlling how
 #'   the permutations are evaluated. The default runs them serially.
 #' @param permutation_method `"auto"`, `"monte_carlo"` or `"exact"`.
@@ -53,7 +57,7 @@ leviBulkGraphInference <- function(counts, groups, networkCoordinatesInput,
     test = unique(groups)[2], control = unique(groups)[1], threshold = 2,
     n_perm = 999L, blocks = NULL, seed = NULL,
     permutation_method = c("auto", "monte_carlo", "exact"), max_exact = 50000L,
-    refit_dispersions = FALSE, BPPARAM = SerialParam()) {
+    refit_dispersions = TRUE, BPPARAM = SerialParam()) {
     if (!requireNamespace("DESeq2", quietly = TRUE))
         stop("'DESeq2' is required for bulk RNA-seq inference.", call. = FALSE)
     counts <- as.matrix(counts)
@@ -71,6 +75,8 @@ leviBulkGraphInference <- function(counts, groups, networkCoordinatesInput,
     if (!is.null(seed)) withr::local_seed(seed)
     parsed <- .parseNetwork(networkCoordinatesInput, networkInteractionsInput, fileTypeInput)
     nodes <- unique(as.character(parsed$nodes[, 1]))
+    .checkExpressionInput(rownames(counts), nodes, groups, test, control,
+                          n_perm)
     edge_index <- cbind(match(as.character(parsed$edges[, 1]), nodes),
                         match(as.character(parsed$edges[, 2]), nodes))
     edge_index <- edge_index[stats::complete.cases(edge_index), , drop = FALSE]
@@ -88,7 +94,13 @@ leviBulkGraphInference <- function(counts, groups, networkCoordinatesInput,
     # "genewise" skips the parametric trend fit, which small pilot studies
     # with few genes cannot always support.
     fit_dds <- function(dds, estimator) {
-        if (estimator == "trend") return(DESeq2::DESeq(dds, quiet = TRUE))
+        # Outlier replacement is switched off: with seven or more replicates
+        # per group DESeq() replaces Cook outliers in the observed fit but
+        # the permuted fits would see the raw counts, so the two sides would
+        # come from different pipelines.
+        if (estimator == "trend")
+            return(DESeq2::DESeq(dds, quiet = TRUE,
+                                 minReplicatesForReplace = Inf))
         dds <- DESeq2::estimateSizeFactors(dds)
         dds <- DESeq2::estimateDispersionsGeneEst(dds, quiet = TRUE)
         DESeq2::dispersions(dds) <- S4Vectors::mcols(dds)$dispGeneEst
@@ -106,10 +118,11 @@ leviBulkGraphInference <- function(counts, groups, networkCoordinatesInput,
     observed_fit <- tryCatch(fit_observed("trend"),
                              error = function(e) fit_observed("genewise"))
     perms <- .labelPermutations(groups, blocks, n_perm, permutation_method, max_exact)
-    # By default the size factors and dispersions estimated on the observed
-    # labels are kept fixed and only the GLM is refitted per permutation: a
-    # permutation test conditional on those estimates, about an order of
-    # magnitude cheaper. refit_dispersions = TRUE re-estimates everything.
+    # By default everything is re-estimated per permutation. With
+    # refit_dispersions = FALSE the size factors and dispersions estimated on
+    # the observed labels are kept fixed and only the GLM is refitted; those
+    # estimates depend on the observed labels, so the permuted statistic is
+    # not drawn from the same orbit and the level is not guaranteed.
     permuted_fit <- function(g, fit) {
         if (refit_dispersions) return(fit_dds(make_dds(g), fit$estimator))
         dds <- make_dds(g)
@@ -117,11 +130,15 @@ leviBulkGraphInference <- function(counts, groups, networkCoordinatesInput,
         DESeq2::dispersions(dds) <- DESeq2::dispersions(fit$dds)
         DESeq2::nbinomWaldTest(dds, quiet = TRUE)
     }
-    if (refit_dispersions)
-        message("Refitting DESeq2 dispersions for each of ",
-                length(perms$labels), " label permutations. This is slow on ",
-                "real data; pass BPPARAM = BiocParallel::MulticoreParam() ",
-                "to parallelise or use refit_dispersions = FALSE.")
+    if (refit_dispersions && length(perms$labels) > 200L)
+        message("Refitting DESeq2 for each of ", length(perms$labels),
+                " label permutations. This is slow on real data; pass ",
+                "BPPARAM = BiocParallel::MulticoreParam() to parallelise, ",
+                "or use voom/logCPM with leviGraphClusterInference().")
+    if (!refit_dispersions)
+        warning("refit_dispersions = FALSE keeps label-dependent dispersions ",
+                "fixed across permutations; the test has no level guarantee ",
+                "and should be used for exploration only.", call. = FALSE)
     attempt <- function(fit) list(fit = fit, null = .permutationNull(
         perms$labels,
         function(perm) .directionMaxima(.graphRegions(
@@ -158,7 +175,9 @@ leviBulkGraphInference <- function(counts, groups, networkCoordinatesInput,
 #'   aggregated separately for each donor-by-condition-by-cell-type combination.
 #' @param min_cells Minimum cells required for a pseudobulk.
 #' @return List with pseudobulk counts and donor, cell-type and (when supplied)
-#'   condition metadata.
+#'   condition metadata. Grouping labels are preserved verbatim; missing donor,
+#'   cell-type or supplied condition labels are rejected. Count-column names are
+#'   made unique when concatenated labels coincide.
 #' @examples
 #' counts <- matrix(1:12, nrow = 3, dimnames = list(paste0("g", 1:3), NULL))
 #' leviPseudobulk(counts, donor = c("d1", "d1", "d2", "d2"),

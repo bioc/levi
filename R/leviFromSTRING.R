@@ -1,4 +1,4 @@
-﻿#' @title leviFromSTRING
+#' @title leviFromSTRING
 #' @description Build a levi-compatible network directly from the STRING
 #' protein interaction database using the \pkg{STRINGdb} Bioconductor package.
 #' Node coordinates are computed from the interaction graph via an igraph

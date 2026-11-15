@@ -34,6 +34,8 @@
 
     # Only the signals move; the coordinates are the same on every iteration,
     # so the silhouette and the convolution denominator do not need recomputing.
+    landscape_of <- .m1Landscape(coord, resolutionValue, zoomValue, increase,
+                                 sigma, occFrac, weights)
     for (p in seq_len(n_perm)) {
         if (!is.null(progress)) progress(p, n_perm)
         if (is.null(node_values)) {
@@ -55,26 +57,16 @@
             signals <- .networkSignals(permuted, edge_index, single_col,
                                         signal_mode, logfc_k)
         }
-        mf_p <- landscape_gauss(
-            coord           = coord,
-            SignalOut       = signals$signal,
-            signalExp       = signals$test,
-            signalCtrl      = signals$control,
-            resolutionValue = resolutionValue,
-            zoomValue       = zoomValue,
-            increase        = increase,
-            sigma           = sigma,
-            occFrac         = occFrac,
-            weights         = weights)
+        m1_p <- landscape_of(signals$signal)
 
         if (regional) {
             # Redetect components in every randomisation: the observed areas
             # must not be treated as regions specified before seeing the data.
-            null_max[p, ] <- .maximumRegionMass(mf_p$m1, increase,
+            null_max[p, ] <- .maximumRegionMass(m1_p, increase,
                 regions$threshold, regions$min_cells)
         } else {
-            countOver  <- countOver  + (mf_p$m1 >= matrixOut)
-            countUnder <- countUnder + (mf_p$m1 <= matrixOut)
+            countOver  <- countOver  + (m1_p >= matrixOut)
+            countUnder <- countUnder + (m1_p <= matrixOut)
         }
     }
 

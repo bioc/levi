@@ -93,6 +93,7 @@ leviSingleCellTFCEInference <- function(counts, donor, cell_type, condition,
              call. = FALSE)
     ni <- .networkIndex(networkCoordinatesInput, networkInteractionsInput,
                         fileTypeInput)
+    .checkExpressionInput(rownames(counts), ni$nodes, n_perm = n_perm)
     expression <- .pseudobulkExpression(pb, design$keys, types, paired,
                                         normalize,
                                         keep_genes = ni$nodes)
@@ -271,6 +272,7 @@ leviSingleCellRegionalInference <- function(counts, donor, cell_type,
              call. = FALSE)
     ni <- .networkIndex(networkCoordinatesInput, networkInteractionsInput,
                         fileTypeInput)
+    .checkExpressionInput(rownames(counts), ni$nodes, n_perm = n_perm)
     expression <- .pseudobulkExpression(pb, design$keys, types, paired = TRUE,
                                         normalize,
                                         keep_genes = ni$nodes)
@@ -329,17 +331,15 @@ leviSingleCellRegionalInference <- function(counts, donor, cell_type,
          first$node_coordinates[edges[, 2], , drop = FALSE]) / 2)
     # The null signal must use the sigmoid steepness of the observed landscape.
     k <- list(...)[["logfc_k"]] %||% 1
+    landscape_of <- .m1Landscape(coord, grid$resolution, grid$zoom,
+        grid$increase, grid$sigma, grid$occupancy,
+        first$support_weights %||% numeric(0))
     null_area <- .permutationNull(perms$labels, function(g) {
         per_type <- vapply(types, function(tp) {
             node_lfc <- unname(mean_lfc(expression[[tp]], g)[node_names])
             signal <- .networkSignals(cbind(node_lfc, node_lfc), edges, TRUE,
                                       "logfc", k)$signal
-            z <- landscape_gauss(coord = coord, SignalOut = signal,
-                signalExp = signal, signalCtrl = signal,
-                resolutionValue = grid$resolution, zoomValue = grid$zoom,
-                increase = grid$increase, sigma = grid$sigma,
-                occFrac = grid$occupancy,
-                weights = first$support_weights %||% numeric(0))$m1
+            z <- landscape_of(signal)
             .maximumRegionMass(z, grid$increase,
                 landscapes[[tp]]$metadata$region_threshold,
                 landscapes[[tp]]$metadata$region_min_cells)
@@ -365,8 +365,15 @@ leviSingleCellRegionalInference <- function(counts, donor, cell_type,
 #' Cell-type-specific condition interaction with joint graph TFCE inference
 #'
 #' Tests whether the condition effect in each non-reference cell type differs
-#' from the reference type. Labels are exchanged within donors jointly over all
-#' cell types, avoiding cell-level pseudoreplication.
+#' from the reference type. For every donor the interaction contrast
+#' \eqn{(y_{stim} - y_{ctrl})_{type} - (y_{stim} - y_{ctrl})_{reference}} is
+#' formed on TMM log2 CPM pseudobulks and tested with a limma-trend
+#' one-sample moderated t. A condition effect shared by all cell types
+#' cancels in the contrast, so swapping the condition labels inside a donor
+#' (jointly over all cell types) flips the sign of that donor's contrast and
+#' is a valid null for "no interaction" even when the main effect is large.
+#' Cell types are aligned on the genes they share. Every donor must have
+#' both conditions in every analysed cell type.
 #'
 #' @inheritParams leviSingleCellRegionalInference
 #' @param reference_cell_type Cell type against which the condition effect of
@@ -422,32 +429,55 @@ leviSingleCellInteractionTFCE <- function(counts, donor, cell_type, condition,
     others <- setdiff(types, reference_cell_type)
     ni <- .networkIndex(networkCoordinatesInput, networkInteractionsInput,
                         fileTypeInput)
+    .checkExpressionInput(rownames(counts), ni$nodes, n_perm = n_perm)
     expression <- .pseudobulkExpression(pb, design$keys, types, paired = TRUE,
                                         normalize,
                                         keep_genes = ni$nodes)
 
-    # All cell types stacked as columns of one matrix, so that the
-    # condition-by-type interaction can be fitted in a single linear model.
-    stacked <- do.call(cbind, expression)
-    n_per_type <- length(design$groups)
-    frame <- data.frame(
-        donor = factor(rep(design$blocks, length(types))),
-        type = factor(rep(types, each = n_per_type),
-                      levels = c(reference_cell_type, others)))
-    interaction_columns <- paste0("type", others, ":condition", levels[2])
+    # Per-donor interaction contrasts. For donor j and cell type tp the
+    # condition effect is diff_tp[, j] = logCPM(stim) - logCPM(ctrl); the
+    # interaction is d_tp[, j] = diff_tp[, j] - diff_ref[, j]. A common
+    # condition effect cancels in d, so under the null of no interaction d
+    # is symmetric about zero and swapping the condition labels inside a
+    # donor (jointly over all cell types) only flips the sign of that donor's
+    # column. The statistic is a one-sample moderated t on d. The earlier
+    # version refitted `~ donor + type * condition` on the swapped labels,
+    # which is invariant only under the global null (no condition effect at
+    # all): with a common main effect and no interaction it rejected in 85%
+    # of null data sets (expert panel, 2026-11). The cell types are aligned
+    # on their common genes, because .pseudobulkExpression() filters each
+    # type separately and stacking them by position mixed genes.
+    common <- Reduce(intersect, lapply(expression, rownames))
+    if (!length(intersect(ni$nodes, common)))
+        stop("No network node is shared by the selected cell types.",
+             call. = FALSE)
+    expression <- lapply(expression, function(e) e[common, , drop = FALSE])
+    first <- design$groups == levels[1]
+    second <- design$groups == levels[2]
+    donor_order <- design$blocks[second]
+    if (!identical(design$blocks[first], donor_order))
+        stop("Internal error: paired pseudobulk columns are misaligned.",
+             call. = FALSE)
+    effect <- lapply(expression, function(e)
+        e[, second, drop = FALSE] - e[, first, drop = FALSE])
+    contrasts <- lapply(others, function(tp)
+        effect[[tp]] - effect[[reference_cell_type]])
+    names(contrasts) <- others
+    abundance <- rowMeans(do.call(cbind, expression))
 
+    # Sign of each donor's contrast under a label vector: +1 when the donor
+    # keeps its observed labels, -1 when they are swapped.
+    donorSigns <- function(g) {
+        ifelse(g[second] == levels[2], 1, -1)
+    }
     statistic <- function(g) {
-        frame$condition <- factor(rep(g, length(types)), levels = levels)
-        design_matrix <- stats::model.matrix(~ donor + type * condition,
-                                             data = frame)
-        missing <- setdiff(interaction_columns, colnames(design_matrix))
-        if (length(missing))
-            stop("Interaction coefficient(s) not found in the design: ",
-                 paste(missing, collapse = ", "), call. = FALSE)
-        fit <- limma::eBayes(limma::lmFit(stacked, design_matrix),
-                             trend = TRUE)
-        out <- lapply(interaction_columns, function(column)
-            stats::setNames(fit$t[, column], rownames(stacked)))
+        s <- donorSigns(g)
+        out <- lapply(contrasts, function(d) {
+            fit <- limma::lmFit(t(t(d) * s))
+            fit$Amean <- abundance
+            fit <- limma::eBayes(fit, trend = TRUE)
+            stats::setNames(fit$t[, 1], common)
+        })
         names(out) <- others
         out
     }
@@ -479,6 +509,7 @@ leviSingleCellInteractionTFCE <- function(counts, donor, cell_type, condition,
     list(results = tables, null_global = null_global, exact = perms$exact,
          possible_permutations = perms$possible, p_floor = perms$floor,
          reference_cell_type = reference_cell_type,
-         method = paste("pseudobulk limma condition-by-cell-type interaction;",
-                        "joint within-donor TFCE maximum"))
+         method = paste("pseudobulk per-donor interaction contrasts,",
+                        "moderated one-sample t; joint within-donor",
+                        "sign-flip TFCE maximum"))
 }

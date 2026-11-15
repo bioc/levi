@@ -35,12 +35,12 @@ test_that("permutations redetect areas and preserve missing positions", {
     values <- cbind(c(-1, 1, NA), c(0, 0, NA)); edge <- matrix(c(1, 2), 1)
     z <- matrix(.5, 3, 3); z[1:2, 1:2] <- .7
     r <- levi:::.extractLandscapeRegions(z, 0, 1, .1, 1)
-    testthat::local_mocked_bindings(landscape_gauss = function(..., SignalOut) {
+    testthat::local_mocked_bindings(landscape_m1 = function(coord, signal, ...) {
         draws <<- draws + 1L
-        expect_equal(SignalOut[3, 1], .5)
-        expect_equal(SignalOut[4, 1], .5)
+        expect_equal(signal[3], .5)
+        expect_equal(signal[4], .5)
         x <- matrix(.5, 3, 3); x[3, 3] <- if (draws == 1L) .9 else .1
-        list(m1 = x)
+        x
     }, .package = "levi")
     sig <- levi:::.networkSignals(values, edge, FALSE, "logfc", 1)
     p <- levi:::.permutationPvalues(matrix(0, 4, 2), sig$signal, sig$test,

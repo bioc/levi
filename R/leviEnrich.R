@@ -68,8 +68,10 @@ leviEnrich <- function(result,
         stop("clusterProfiler is required. ",
              "Install with: BiocManager::install('clusterProfiler')")
 
+    .checkLeviResult(result)
     if (is.null(result$scores))
-        stop("result$scores not found. Re-run levi() with levi >= 2.0.0.")
+        stop("result$scores not found. Re-run levi() with the current ",
+             "version of levi.")
 
     scores <- result$scores
     all_genes <- scores$Gene

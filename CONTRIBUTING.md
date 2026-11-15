@@ -43,6 +43,6 @@ Here are some tips to help make your pull requests successful:
 - Use spaces (4) for indentation rather than tabs.
 - If necessary, update the documentation to reflect your changes.
 - **Write tests** for new features. Quality tests are crucial for maintaining robust code. We encourage using the `testthat` package in R for testing. Look at the existing tests for inspiration or refer to the [R packages book](https://r-pkgs.org/tests.html) for guidance on writing good tests.
-- Be aware that your contributions will be licensed under the same terms as the project.
+- Be aware that your contributions will be licensed under the same terms as the project (GPL (>= 2)).
 
 When you submit your pull request, automated tests will run as part of our continuous integration setup. We appreciate constructive discussion on the best practices for coding and welcome comments on your pull request as a forum for such exchanges.

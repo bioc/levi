@@ -19,8 +19,10 @@ leviFromSE(
 \arguments{
 \item{se}{A \code{SummarizedExperiment} (or subclass) object.}
 
-\item{assay_name}{Character. Name or index of the assay to extract.
-Default is \code{"counts"} (falls back to assay index 1 if not found).}
+\item{assay_name}{Character. Name of the assay to extract.
+Default is \code{"counts"}. An assay that does not exist is an error. With
+\code{"counts"} and \code{log_transform = FALSE} the function warns that raw
+counts are being averaged.}
 
 \item{test_col}{Character or integer. Column index/name in
 \code{colData(se)} identifying which samples are the \strong{test}

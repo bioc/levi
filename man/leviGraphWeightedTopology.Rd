@@ -44,6 +44,20 @@ A one-row data frame with weighted Moran's I, Laplacian energy and
 of a score column in an interaction data frame). It lets STRING confidence
 scores contribute to neighbourhood and smoothness calculations.
 }
+\section{Null hypothesis}{
+
+Node-label permutation treats the gene scores as exchangeable over the
+nodes. Neighbouring genes in a biological network are usually
+co-expressed, so their scores are correlated even when the condition has
+no effect, and in simulations with co-expressed neighbours and no
+differential expression these tests rejected far above the nominal level.
+A small P-value therefore describes the arrangement of the scores on the
+network (autocorrelation, given the values), not a response to the
+condition. When replicate samples are available, use a sample-label test
+([leviGraphTFCEInference()], [leviGraphClusterInference()]) to ask whether
+the condition changed a region of the network.
+}
+
 \examples{
 network <- data.frame(ID = c("A", "B", "C"), X = 1:3, Y = 1:3)
 edges <- data.frame(V1 = c("A", "B"), V2 = c("B", "C"), score = c(1, 2))

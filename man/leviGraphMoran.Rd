@@ -38,7 +38,20 @@ A list with one global Moran's I test and a table of local Moran's I
 \description{
 Computes global Moran's I and local Moran's I for gene scores using the
 binary adjacency of the biological network, with hotspot classes and
-node-label permutation P-values.
+node-label permutation P-values. The global test shuffles all scores; the
+local test uses conditional permutation (each node keeps its own score
+and its neighbours are drawn from the remaining scores), as in
+`spdep::localmoran_perm()`. Both P-values are two-sided around the null
+expectation of the statistic.
+}
+\details{
+Node-label permutation treats the gene scores as exchangeable. Genes that
+are neighbours in a biological network are usually co-expressed, and
+their scores are correlated even when the condition has no effect, so a
+small P-value says that the scores are autocorrelated on the network,
+not that the condition produced a module. Use a sample-label test
+([leviGraphTFCEInference()], [leviGraphClusterInference()]) for that
+question.
 }
 \examples{
 network <- data.frame(ID = c("A", "B", "C"), X = 1:3, Y = 1:3)

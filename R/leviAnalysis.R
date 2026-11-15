@@ -252,9 +252,11 @@ leviDiff <- function(result_a, result_b,
                      label_a  = NULL,
                      label_b  = NULL,
                      setcolor = "default") {
+    .checkLeviResult(result_a, "result_a")
+    .checkLeviResult(result_b, "result_b")
     if (is.null(result_a$landscape) || is.null(result_b$landscape))
         stop("Both results must contain a $landscape data.frame. ",
-             "Re-run levi() with levi >= 2.0.0.")
+             "Re-run levi() with the current version of levi.")
 
     la <- result_a$landscape
     lb <- result_b$landscape

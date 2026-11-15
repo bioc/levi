@@ -83,9 +83,9 @@ test_that("uniform absence of effect stays neutral under permutation", {
 
 test_that("node-label permutations recalculate edge signals and preserve missing positions", {
     captured <- list()
-    testthat::local_mocked_bindings(landscape_gauss = function(..., SignalOut) {
-        captured[[length(captured) + 1L]] <<- SignalOut
-        list(m1 = matrix(0.5, 2, 2))
+    testthat::local_mocked_bindings(landscape_m1 = function(coord, signal, ...) {
+        captured[[length(captured) + 1L]] <<- signal
+        matrix(0.5, 2, 2)
     }, .package = "levi")
     values <- cbind(c(1, 3, 7, NA), c(1, 1, 1, NA))
     edge <- matrix(c(1, 2), nrow = 1)

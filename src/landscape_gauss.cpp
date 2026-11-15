@@ -1,6 +1,7 @@
 #include <Rcpp.h>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 using namespace Rcpp;
 
 // -----------------------------------------------------------------------------
@@ -27,33 +28,40 @@ using namespace Rcpp;
 // of points enters only in the initial deposit, which is O(n).
 // -----------------------------------------------------------------------------
 
-// 1-D convolution along one axis. It deliberately does not renormalise by the
-// local weight: numerator and denominator undergo the same truncation near the
+// Separable blur. The kernel is deliberately not renormalised by the local
+// weight: numerator and denominator undergo the same truncation near the
 // border, so their ratio remains a legitimate weighted average.
-static void convolve1d(const std::vector<double>& in, std::vector<double>& out,
-                       int res, const std::vector<double>& kern, int r,
-                       bool alongRows)
-{
-    for (int i = 0; i < res; ++i) {
-        for (int j = 0; j < res; ++j) {
-            double acc = 0.0;
-            const int lo = -r, hi = r;
-            for (int t = lo; t <= hi; ++t) {
-                const int ii = alongRows ? i + t : i;
-                const int jj = alongRows ? j : j + t;
-                if (ii < 0 || ii >= res || jj < 0 || jj >= res) continue;
-                acc += kern[t + r] * in[(std::size_t)ii * res + jj];
-            }
-            out[(std::size_t)i * res + j] = acc;
-        }
-    }
-}
-
+//
+// Both passes add the kernel terms in ascending offset t, starting from 0,
+// so every cell receives exactly the same sequence of floating-point
+// operations as the earlier cell-by-cell loop and the results are
+// bit-identical; the loops are only reordered so that the inner one runs over
+// contiguous memory.
 static void gaussBlur(std::vector<double>& g, std::vector<double>& tmp,
                       int res, const std::vector<double>& kern, int r)
 {
-    convolve1d(g, tmp, res, kern, r, true);
-    convolve1d(tmp, g, res, kern, r, false);
+    const std::size_t R = (std::size_t)res;
+    std::fill(tmp.begin(), tmp.end(), 0.0);
+    for (int i = 0; i < res; ++i) {                       // pass along rows
+        double* o = &tmp[(std::size_t)i * R];
+        const int lo = std::max(-r, -i), hi = std::min(r, res - 1 - i);
+        for (int t = lo; t <= hi; ++t) {
+            const double k = kern[(std::size_t)(t + r)];
+            const double* in = &g[(std::size_t)(i + t) * R];
+            for (int j = 0; j < res; ++j) o[j] += k * in[j];
+        }
+    }
+    for (int i = 0; i < res; ++i) {                       // pass along columns
+        const double* in = &tmp[(std::size_t)i * R];
+        double* o = &g[(std::size_t)i * R];
+        for (int j = 0; j < res; ++j) {
+            const int lo = std::max(-r, -j), hi = std::min(r, res - 1 - j);
+            double acc = 0.0;
+            for (int t = lo; t <= hi; ++t)
+                acc += kern[(std::size_t)(t + r)] * in[j + t];
+            o[j] = acc;
+        }
+    }
 }
 
 // Bilinear deposit: spreads the value over the 4 neighbouring cells, so the
@@ -180,6 +188,133 @@ List landscape_gauss(NumericMatrix coord,
 
     return List::create(_["m1"] = mOut, _["m2"] = mExp,
                         _["m3"] = mCtrl, _["occ"] = mOcc);
+}
+
+// Kernel and half-width used by landscape_gauss(), shared by the one-channel
+// entry points below so that all of them blur with identical weights.
+static std::vector<double> makeKernel(double& sigma, int res, int& r)
+{
+    if (!(sigma > 0.35)) sigma = 0.35;
+    r = (int)std::ceil(3.0 * sigma);
+    if (r < 1) r = 1;
+    if (r > res) r = res;
+    std::vector<double> kern((std::size_t)(2 * r + 1));
+    double ksum = 0.0;
+    for (int t = -r; t <= r; ++t) {
+        const double v = std::exp(-(double)t * t / (2.0 * sigma * sigma));
+        kern[(std::size_t)(t + r)] = v;
+        ksum += v;
+    }
+    for (std::size_t t = 0; t < kern.size(); ++t) kern[t] /= ksum;
+    return kern;
+}
+
+//' Smoothed occupancy of the network, for repeated one-channel landscapes
+//'
+//' The occupancy depends only on the coordinates and the support weights, not
+//' on the signal, so the permutation loops compute it once and reuse it
+//' through \code{landscape_m1()}.
+//'
+//' @inheritParams landscape_gauss
+//' @return Resolution x resolution matrix with the smoothed occupancy where it
+//'   exceeds the silhouette threshold and NA elsewhere.
+//' @keywords internal
+// [[Rcpp::export]]
+NumericMatrix landscape_occupancy(NumericMatrix coord,
+                                  int resolutionValue,
+                                  double zoomValue,
+                                  double increase,
+                                  double sigma,
+                                  double occFrac,
+                                  NumericVector weights = NumericVector(0))
+{
+    const int res = resolutionValue;
+    if (res < 1) stop("resolutionValue must be >= 1");
+    const int n = coord.nrow();
+    if (n < 1) stop("coord must have at least one row");
+    if (!(increase > 0.0)) stop("increase must be > 0");
+    const bool weighted = weights.size() > 0;
+    if (weighted && weights.size() != n)
+        stop("weights must have one value per point");
+    const std::size_t N = (std::size_t)res * res;
+    int r;
+    const std::vector<double> kern = makeKernel(sigma, res, r);
+    std::vector<double> den(N, 0.0), unused(N, 0.0), tmp(N, 0.0);
+    for (int m = 0; m < n; ++m) {
+        const double fi = (coord(m, 0) - zoomValue) / increase;
+        const double fj = (coord(m, 1) - zoomValue) / increase;
+        if (!R_finite(fi) || !R_finite(fj)) continue;
+        const double wt = weighted ? weights[m] : 1.0;
+        if (!(wt > 0.0)) continue;
+        splat(unused, &den, res, fi, fj, 0.0, wt);
+    }
+    gaussBlur(den, tmp, res, kern, r);
+    const double isolated = kern[(std::size_t)r] * kern[(std::size_t)r];
+    const double occMin = occFrac * isolated;
+    NumericMatrix out(res, res);
+    for (int i = 0; i < res; ++i) {
+        for (int j = 0; j < res; ++j) {
+            const double d = den[(std::size_t)i * res + j];
+            out(i, j) = (d > occMin && d > 0.0) ? d : NA_REAL;
+        }
+    }
+    return out;
+}
+
+//' Combined-signal landscape with a precomputed occupancy
+//'
+//' Returns exactly the \code{m1} matrix of \code{landscape_gauss()} for the
+//' same arguments, at the cost of one blur instead of four.
+//'
+//' @inheritParams landscape_gauss
+//' @param signal numeric vector with the combined signal of every point.
+//' @param occupancy matrix from \code{landscape_occupancy()} for the same
+//'   coordinates, grid, sigma and weights.
+//' @return Resolution x resolution matrix; NA outside the silhouette.
+//' @keywords internal
+// [[Rcpp::export]]
+NumericMatrix landscape_m1(NumericMatrix coord,
+                           NumericVector signal,
+                           NumericMatrix occupancy,
+                           int resolutionValue,
+                           double zoomValue,
+                           double increase,
+                           double sigma,
+                           NumericVector weights = NumericVector(0))
+{
+    const int res = resolutionValue;
+    if (res < 1) stop("resolutionValue must be >= 1");
+    const int n = coord.nrow();
+    if (n < 1) stop("coord must have at least one row");
+    if (signal.size() != n)
+        stop("signal must have one value per point");
+    if (occupancy.nrow() != res || occupancy.ncol() != res)
+        stop("occupancy must be a resolution x resolution matrix");
+    if (!(increase > 0.0)) stop("increase must be > 0");
+    const bool weighted = weights.size() > 0;
+    if (weighted && weights.size() != n)
+        stop("weights must have one value per point");
+    const std::size_t N = (std::size_t)res * res;
+    int r;
+    const std::vector<double> kern = makeKernel(sigma, res, r);
+    std::vector<double> num(N, 0.0), tmp(N, 0.0);
+    for (int m = 0; m < n; ++m) {
+        const double fi = (coord(m, 0) - zoomValue) / increase;
+        const double fj = (coord(m, 1) - zoomValue) / increase;
+        if (!R_finite(fi) || !R_finite(fj)) continue;
+        const double wt = weighted ? weights[m] : 1.0;
+        if (!(wt > 0.0)) continue;
+        splat(num, NULL, res, fi, fj, signal[m], wt);
+    }
+    gaussBlur(num, tmp, res, kern, r);
+    NumericMatrix out(res, res);
+    for (int i = 0; i < res; ++i) {
+        for (int j = 0; j < res; ++j) {
+            const double d = occupancy(i, j);
+            out(i, j) = R_IsNA(d) ? NA_REAL : num[(std::size_t)i * res + j] / d;
+        }
+    }
+    return out;
 }
 
 //' Index of the node nearest to each grid cell

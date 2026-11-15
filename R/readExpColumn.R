@@ -1,4 +1,4 @@
-﻿if(getRversion() >= "3.4.0") utils::globalVariables(c("Var1", "Var2", "z",
+if(getRversion() >= "3.4.0") utils::globalVariables(c("Var1", "Var2", "z",
     "SigCoordPiso", "matrix_entrada", "matrix_saida",
     "x", "y", "label", "Diff", "pval"))
 #' @title readExpColumn - Define expression comparisons for levi

@@ -40,10 +40,12 @@ run_levi <- function(expr, comparison = "Test-Control", ...) {
 # --- leviFromSE --------------------------------------------------------------
 
 test_that("leviFromSE: aggregates by condition label", {
-    out <- leviFromSE(make_se(), assay_name = "counts",
-                      condition_col = "condition",
-                      test_level = "Tumor", ctrl_level = "Normal",
-                      gene_col = "ID")
+    expect_warning(
+        out <- leviFromSE(make_se(), assay_name = "counts",
+                          condition_col = "condition",
+                          test_level = "Tumor", ctrl_level = "Normal",
+                          gene_col = "ID"),
+        "raw counts")
 
     expect_s3_class(out, "data.frame")
     expect_identical(colnames(out), c("ID", "Test", "Control"))
@@ -57,53 +59,66 @@ test_that("leviFromSE: aggregates by condition label", {
 test_that("leviFromSE: selects samples by name and by index", {
     se <- make_se()
 
-    by_name <- leviFromSE(se, test_col = c("tumor1", "tumor2"),
-                          ctrl_col = "normal1", gene_col = "ID")
-    by_index <- leviFromSE(se, test_col = 1:2, ctrl_col = 3L, gene_col = "ID")
+    suppressWarnings({
+        by_name <- suppressWarnings(leviFromSE(se, test_col = c("tumor1", "tumor2"),
+                              ctrl_col = "normal1", gene_col = "ID"))
+        by_index <- suppressWarnings(leviFromSE(se, test_col = 1:2, ctrl_col = 3L,
+                               gene_col = "ID"))
+    })
 
     expect_equal(by_name, by_index)
     expect_equal(by_name$Control[by_name$ID == "N5"], 200)
 })
 
 test_that("leviFromSE: log_transform applies log2(x + 1)", {
-    out <- leviFromSE(make_se(), condition_col = "condition",
+    out <- suppressWarnings(leviFromSE(make_se(), condition_col = "condition",
                       test_level = "Tumor", ctrl_level = "Normal",
-                      gene_col = "ID", log_transform = TRUE)
+                      gene_col = "ID", log_transform = TRUE))
 
     expect_equal(out$Test[out$ID == "HUB"], mean(log2(c(200, 190) + 1)))
 })
 
 test_that("leviFromSE: gene_col renames the identifier column", {
-    out <- leviFromSE(make_se(), condition_col = "condition",
-                      test_level = "Tumor", ctrl_level = "Normal",
-                      gene_col = "Symbol")
+    out <- suppressWarnings(
+        suppressWarnings(leviFromSE(make_se(), condition_col = "condition",
+                   test_level = "Tumor", ctrl_level = "Normal",
+                   gene_col = "Symbol")))
     expect_identical(colnames(out)[1], "Symbol")
 })
 
-test_that("leviFromSE: falls back to the first assay with a message", {
-    expect_message(
-        out <- leviFromSE(make_se(), assay_name = "vst",
-                          condition_col = "condition",
-                          test_level = "Tumor", ctrl_level = "Normal",
-                          gene_col = "ID"),
+test_that("leviFromSE: an unknown assay is an error, not a silent fallback", {
+    expect_error(
+        suppressWarnings(leviFromSE(make_se(), assay_name = "vst",
+                   condition_col = "condition",
+                   test_level = "Tumor", ctrl_level = "Normal",
+                   gene_col = "ID")),
         "not found")
-    expect_identical(colnames(out), c("ID", "Test", "Control"))
+})
+
+test_that("leviFromSE: duplicated gene names are an error", {
+    se <- make_se()
+    rownames(se)[2] <- rownames(se)[1]
+    expect_error(
+        suppressWarnings(
+            suppressWarnings(leviFromSE(se, condition_col = "condition",
+                       test_level = "Tumor", ctrl_level = "Normal"))),
+        "Duplicated")
 })
 
 test_that("leviFromSE: rejects incomplete or unknown group specifications", {
     se <- make_se()
 
-    expect_error(leviFromSE(se, gene_col = "ID"),
+    expect_error(suppressWarnings(leviFromSE(se, gene_col = "ID")),
                  "Provide either")
-    expect_error(leviFromSE(se, condition_col = "group",
-                            test_level = "Tumor", ctrl_level = "Normal"),
+    expect_error(suppressWarnings(leviFromSE(se, condition_col = "group",
+                            test_level = "Tumor", ctrl_level = "Normal")),
                  "not found in colData")
-    expect_error(leviFromSE(se, condition_col = "condition"),
+    expect_error(suppressWarnings(leviFromSE(se, condition_col = "condition")),
                  "test_level and ctrl_level")
-    expect_error(leviFromSE(se, condition_col = "condition",
-                            test_level = "Treated", ctrl_level = "Normal"),
+    expect_error(suppressWarnings(leviFromSE(se, condition_col = "condition",
+                            test_level = "Treated", ctrl_level = "Normal")),
                  "Treated")
-    expect_error(leviFromSE(se, test_col = "tumor9", ctrl_col = "normal1"),
+    expect_error(suppressWarnings(leviFromSE(se, test_col = "tumor9", ctrl_col = "normal1")),
                  "tumor9")
 })
 
@@ -115,8 +130,9 @@ test_that("leviFromBioc: dispatches SummarizedExperiment to leviFromSE", {
     args <- list(condition_col = "condition", test_level = "Tumor",
                  ctrl_level = "Normal", gene_col = "ID")
 
-    expect_identical(do.call(leviFromBioc, c(list(se), args)),
-                     do.call(leviFromSE,   c(list(se), args)))
+    suppressWarnings(
+        expect_identical(do.call(leviFromBioc, c(list(se), args)),
+                         do.call(leviFromSE,   c(list(se), args))))
 })
 
 test_that("leviFromBioc: names the unsupported class in the error", {
@@ -202,7 +218,7 @@ test_that("leviFromSeurat: maps pct.2 to Control and avg_log2FC to Test", {
     mk <- data.frame(avg_log2FC = c(2.5, -1.8), pct.1 = c(0.9, 0.2),
                      pct.2 = c(0.3, 0.8), row.names = c("HUB", "N5"))
 
-    out <- leviFromSeurat(mk, gene_col = "ID")
+    out <- suppressWarnings(leviFromSeurat(mk, gene_col = "ID"))
 
     expect_identical(colnames(out), c("ID", "Control", "Test"))
     expect_equal(out$Test, c(2.5, -1.8))     # avg_log2FC
@@ -210,9 +226,9 @@ test_that("leviFromSeurat: maps pct.2 to Control and avg_log2FC to Test", {
 })
 
 test_that("leviFromSeurat: reports every missing column at once", {
-    expect_error(leviFromSeurat(data.frame(x = 1, row.names = "HUB")),
+    expect_error(suppressWarnings(leviFromSeurat(data.frame(x = 1, row.names = "HUB"))),
                  "avg_log2FC")
-    expect_error(leviFromSeurat(data.frame(avg_log2FC = 1, row.names = "HUB")),
+    expect_error(suppressWarnings(leviFromSeurat(data.frame(avg_log2FC = 1, row.names = "HUB"))),
                  "pct.2")
 })
 
@@ -220,9 +236,9 @@ test_that("leviFromSeurat: reports every missing column at once", {
 # --- adapter output feeds levi() ---------------------------------------------
 
 test_that("leviFromSE output is accepted by levi()", {
-    expr <- leviFromSE(make_se(), condition_col = "condition",
+    expr <- suppressWarnings(leviFromSE(make_se(), condition_col = "condition",
                        test_level = "Tumor", ctrl_level = "Normal",
-                       gene_col = "ID")
+                       gene_col = "ID"))
 
     pdf(NULL); on.exit(dev.off(), add = TRUE)
     res <- run_levi(expr)

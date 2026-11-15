@@ -271,10 +271,23 @@ of its two endpoints. With the default \code{edge_weighting = "midpoint"}
 a hub with many edges places many support points around itself and
 dominates the local average: the landscape is implicitly weighted by
 degree. The node-label permutation test keeps the network fixed, so this
-weighting is part of its null and does not bias the inference, but it does
-shape what the eye reads on the figure. \code{edge_weighting = "degree"}
-removes that emphasis while keeping the edges as carriers of neighbourhood
-signal; \code{"none"} smooths the nodes alone.
+weighting is part of its null and does not inflate its type I error when
+the scores are exchangeable, but it does shape what the eye reads on the
+figure. \code{edge_weighting = "degree"} removes that emphasis while
+keeping the edges as carriers of neighbourhood signal; \code{"none"}
+smooths the nodes alone.
+
+The node-label test is competitive and conditional on the observed
+values: it asks whether the scores are arranged on the layout more
+tightly than a random relabelling of the same values. It rejects when
+neighbouring genes are co-expressed without any effect of the condition,
+and when the score is associated with degree alone (hubs that are
+differentially expressed more often, for instance), with no cohesive
+module. \code{perm_strata} by coarse degree bins does not remove that
+association. A significant node-label region is therefore a description
+of the score pattern, not evidence that the condition changed a module;
+with replicate samples use \code{\link{leviReplicateInference}} or the
+sample-label graph tests.
 }
 \examples{
 template_network <- file.path(system.file(package="levi"),"extdata",
@@ -297,6 +310,5 @@ twocolors <- levi(networkCoordinatesInput = template_network,
    setcolor = "pink_green", contourLevi = FALSE)
 }
 \author{
-Isabelle Mira da Silva (isabelle.silva@unesp.br),
 Jose Rafael Pilan (rafael.pilan@unesp.br)
 }

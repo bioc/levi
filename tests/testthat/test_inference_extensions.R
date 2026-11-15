@@ -12,10 +12,10 @@ test_that("stratified node permutations do not cross strata", {
     edge <- matrix(c(1, 2), 1)
     observed <- matrix(.5, 2, 2)
     regions <- levi:::.extractLandscapeRegions(observed, 0, 1, .1, 1)
-    testthat::local_mocked_bindings(landscape_gauss = function(..., SignalOut) {
-        expect_true(all(SignalOut[1:2] < .5))
-        expect_true(all(SignalOut[3:4] > .5))
-        list(m1 = observed)
+    testthat::local_mocked_bindings(landscape_m1 = function(coord, signal, ...) {
+        expect_true(all(signal[1:2] < .5))
+        expect_true(all(signal[3:4] > .5))
+        observed
     }, .package = "levi")
     sig <- levi:::.networkSignals(values, edge, FALSE, "logfc", 1)
     levi:::.permutationPvalues(matrix(0, 5, 2), sig$signal, sig$test,
@@ -255,7 +255,7 @@ test_that("exact two-group TFCE and cluster p-values never fall below 2/n", {
 test_that("leviFromSeurat says its output is for visualisation, not donor-level inference", {
     markers <- data.frame(avg_log2FC = c(1.5, -0.8), pct.2 = c(0.1, 0.4),
                           row.names = c("GENE1", "GENE2"))
-    expect_message(out <- leviFromSeurat(markers), "leviPseudobulk")
+    expect_warning(out <- leviFromSeurat(markers), "leviPseudobulk")
     expect_equal(out$Test, c(1.5, -0.8))
 })
 

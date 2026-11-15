@@ -421,3 +421,26 @@ test_that("the grid margin adapts to the kernel so the silhouette is never clipp
     # zoom 0 frames wider than zoom 100: fewer occupied cells on the same grid
     expect_lt(border_occupied(50, 50, 0)["inside"], border_occupied(50, 50, 100)["inside"])
 })
+
+test_that("landscape_m1 with a cached occupancy equals landscape_gauss()$m1 exactly", {
+    set.seed(7)
+    n <- 80
+    pts <- cbind(runif(n), runif(n))
+    sg <- runif(n)
+    w <- rbinom(n, 1, 0.8) * runif(n, 0.5, 2)
+    for (weights in list(numeric(0), w)) {
+        full <- levi:::landscape_gauss(pts, matrix(sg, ncol = 1),
+            matrix(sg, ncol = 1), matrix(sg, ncol = 1), 40L, -0.1, 1.2 / 39,
+            3.4, 0.05, weights)
+        occ <- levi:::landscape_occupancy(pts, 40L, -0.1, 1.2 / 39, 3.4, 0.05,
+                                          weights)
+        m1 <- levi:::landscape_m1(pts, sg, occ, 40L, -0.1, 1.2 / 39, 3.4,
+                                  weights)
+        expect_identical(m1, full$m1)
+        expect_identical(is.na(occ), is.na(full$m1))
+    }
+    expect_error(levi:::landscape_m1(pts, sg[-1], occ, 40L, -0.1, 1.2 / 39, 3.4),
+                 "one value per point")
+    expect_error(levi:::landscape_m1(pts, sg, occ[1:10, 1:10], 40L, -0.1,
+                                     1.2 / 39, 3.4), "resolution x resolution")
+})

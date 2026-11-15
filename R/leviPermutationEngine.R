@@ -34,6 +34,7 @@
                                method = c("auto", "monte_carlo", "exact"),
                                max_exact = 50000L, alpha = 0.05) {
     method <- match.arg(method)
+    if (method != "exact") n_perm <- .checkNperm(n_perm)
     groups <- as.character(groups)
     if (length(unique(groups)) != 2L)
         stop("Exactly two groups are required.", call. = FALSE)
@@ -118,15 +119,23 @@
     list(labels = labels, exact = TRUE, possible = n_possible, floor = floor_p)
 }
 
+# Number of Monte Carlo draws: a single whole number of at least 1.
+.checkNperm <- function(n_perm) {
+    if (!is.numeric(n_perm) || length(n_perm) != 1L || !is.finite(n_perm) ||
+        n_perm < 1 || n_perm != floor(n_perm))
+        stop("'n_perm' must be a single whole number >= 1.", call. = FALSE)
+    as.integer(n_perm)
+}
+
 # Node-label draws: the same scores in a random order.
 .nodeShuffles <- function(x, n_perm) {
-    replicate(as.integer(n_perm), sample(x), simplify = FALSE)
+    replicate(.checkNperm(n_perm), sample(x), simplify = FALSE)
 }
 
 # Degree-preserving rewiring draws: one edge index matrix per null network.
 .rewiredEdgeLists <- function(edges, n_nodes, n_perm, steps) {
     g <- igraph::simplify(.graphFromEdges(n_nodes, edges))
-    replicate(as.integer(n_perm), {
+    replicate(.checkNperm(n_perm), {
         rewired <- igraph::rewire(g,
             with = igraph::keeping_degseq(niter = steps))
         igraph::as_edgelist(rewired, names = FALSE)
@@ -139,6 +148,61 @@
 # through BiocParallel; the default SerialParam keeps examples and tests
 # single-threaded, and MulticoreParam() or SnowParam() parallelise the loop
 # without any other change.
+# One-channel landscape for the permutation loops. The smoothed occupancy
+# (the silhouette and the denominator of the Nadaraya-Watson average) depends
+# only on the coordinates and the support weights, so it is computed once and
+# every draw pays for a single blur instead of four. The result is
+# bit-identical to landscape_gauss(...)$m1 for the same arguments.
+.m1Landscape <- function(coord, resolution, zoom, increase, sigma, occFrac,
+                         weights = numeric(0)) {
+    occupancy <- landscape_occupancy(coord, resolution, zoom, increase, sigma,
+                                     occFrac, weights)
+    function(signal)
+        landscape_m1(coord, as.numeric(signal), occupancy, resolution, zoom,
+                     increase, sigma, weights)
+}
+
+# Input checks shared by the permutation functions. Failing early replaces
+# the silent paths found by the panel: a gene table with no gene in common
+# with the network used to return zeros plus one warning per permutation,
+# duplicated gene names were accepted, and an unknown 'test' level reached
+# limma as an opaque error.
+.checkExpressionInput <- function(genes, nodes, groups = NULL, test = NULL,
+                                  control = NULL, n_perm = NULL) {
+    genes <- as.character(genes)
+    if (!length(genes) || is.null(genes) || anyNA(genes))
+        stop("The expression matrix needs non-missing gene row names.",
+             call. = FALSE)
+    if (anyDuplicated(genes))
+        stop("Duplicated gene names in the expression matrix (",
+             sum(duplicated(genes)), " repeated, e.g. '",
+             genes[duplicated(genes)][1], "'). Aggregate them first.",
+             call. = FALSE)
+    common <- sum(genes %in% nodes)
+    if (common == 0L)
+        stop("No gene of the expression matrix is a node of the network. ",
+             "Check that both use the same identifiers.", call. = FALSE)
+    if (common < 0.25 * length(nodes))
+        warning("Only ", common, " of ", length(nodes), " network nodes ",
+                "have expression data; the remaining nodes are absent from ",
+                "the statistic.", call. = FALSE)
+    if (!is.null(groups)) {
+        if (anyNA(groups))
+            stop("'groups' contains missing values.", call. = FALSE)
+        if (!all(c(as.character(test), as.character(control)) %in%
+                 as.character(groups)))
+            stop("'test' and 'control' must both be levels of 'groups' (found: ",
+                 paste(unique(as.character(groups)), collapse = ", "), ").",
+                 call. = FALSE)
+        if (identical(as.character(test), as.character(control)))
+            stop("'test' and 'control' must differ.", call. = FALSE)
+    }
+    if (!is.null(n_perm) && (length(n_perm) != 1L || !is.finite(n_perm) ||
+                             n_perm < 1))
+        stop("'n_perm' must be a positive integer.", call. = FALSE)
+    invisible(TRUE)
+}
+
 .permutationNull <- function(draws, statistic, BPPARAM = SerialParam(),
                              names = NULL) {
     rows <- bplapply(draws, statistic, BPPARAM = BPPARAM)
@@ -156,9 +220,13 @@
 # reproduces the observed statistic up to floating-point rounding, and
 # without the tolerance a p-value of 1/n or 2/n depended on the last bits.
 .maxPvalue <- function(null_max, observed) {
+    # Counting by binary search on the sorted null instead of outer() keeps
+    # memory at O(n) rather than O(n x nodes): 10k nodes against 9999 draws
+    # used about 2 GB.
     tolerance <- 1e-12 * pmax(1, abs(observed))
-    (1 + colSums(outer(null_max, observed - tolerance, `>=`))) /
-        (length(null_max) + 1)
+    sorted <- sort(null_max, na.last = NA)
+    below <- findInterval(observed - tolerance, sorted, left.open = TRUE)
+    (1 + length(sorted) - below) / (length(null_max) + 1)
 }
 
 # Largest cluster mass in each direction from a .graphRegions() summary.
@@ -179,17 +247,27 @@
     e <- cbind(match(as.character(p$edges[, 1]), nodes),
                match(as.character(p$edges[, 2]), nodes))
     keep <- stats::complete.cases(e) & e[, 1] != e[, 2]
-    list(nodes = nodes, edges = unique(e[keep, , drop = FALSE]))
+    e <- e[keep, , drop = FALSE]
+    # A-B and B-A are the same undirected edge; keep one of them.
+    e <- unique(cbind(pmin(e[, 1], e[, 2]), pmax(e[, 1], e[, 2])))
+    list(nodes = nodes, edges = e)
 }
 
 # Restricts the network to the nodes that carry a finite score and renumbers
 # the edges accordingly.
 .alignedGraph <- function(scores, networkCoordinatesInput,
                           networkInteractionsInput, fileTypeInput) {
+    if (!is.numeric(scores) || is.null(names(scores)))
+        stop("'scores' must be a numeric vector named by gene identifier.",
+             call. = FALSE)
     ni <- .networkIndex(networkCoordinatesInput, networkInteractionsInput,
                         fileTypeInput)
     x <- as.numeric(scores[ni$nodes])
     keep <- is.finite(x)
+    if (sum(keep) < 3L)
+        stop(sum(keep), " network node(s) have a finite score; at least 3 ",
+             "are needed. Check that names(scores) use the same gene ",
+             "identifiers as the network.", call. = FALSE)
     map <- cumsum(keep)
     e <- ni$edges[keep[ni$edges[, 1]] & keep[ni$edges[, 2]], , drop = FALSE]
     if (nrow(e)) e <- cbind(map[e[, 1]], map[e[, 2]])

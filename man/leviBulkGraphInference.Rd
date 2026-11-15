@@ -18,7 +18,7 @@ leviBulkGraphInference(
   seed = NULL,
   permutation_method = c("auto", "monte_carlo", "exact"),
   max_exact = 50000L,
-  refit_dispersions = FALSE,
+  refit_dispersions = TRUE,
   BPPARAM = SerialParam()
 )
 }
@@ -47,11 +47,15 @@ the number of assignments is at most `max_exact` and Monte Carlo otherwise.}
 \item{max_exact}{Maximum number of label assignments enumerated by the exact
 permutation scheme.}
 
-\item{refit_dispersions}{Logical. `FALSE` (default) keeps the size factors
-and dispersions estimated on the observed labels and refits only the
-negative-binomial GLM in each permutation, a test conditional on those
-estimates and considerably faster. `TRUE` re-estimates dispersions in
-every permutation.}
+\item{refit_dispersions}{Logical. `TRUE` (default) re-runs the whole
+DESeq2 pipeline (size factors, dispersions, GLM) in every permutation, so
+the observed and permuted statistics come from the same procedure and the
+test is exact. `FALSE` keeps the size factors and dispersions estimated on
+the observed labels and refits only the GLM, about an order of magnitude
+faster, but those estimates depend on the observed labels and the test
+then has no level guarantee: in null simulations (4 vs 4, 30 genes) its
+family-wise error rate was about three times the attainable level. Use it
+for exploration only.}
 
 \item{BPPARAM}{A [BiocParallel::BiocParallelParam] object controlling how
 the permutations are evaluated. The default runs them serially.}

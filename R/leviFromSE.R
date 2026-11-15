@@ -1,10 +1,12 @@
-﻿#' @title leviFromSE
+#' @title leviFromSE
 #' @description Convert a \code{SummarizedExperiment} object into a
 #' data.frame compatible with \code{levi}'s \code{expressionInput} parameter.
 #' Handles both single-assay and multi-assay SE objects.
 #' @param se A \code{SummarizedExperiment} (or subclass) object.
-#' @param assay_name Character. Name or index of the assay to extract.
-#' Default is \code{"counts"} (falls back to assay index 1 if not found).
+#' @param assay_name Character. Name of the assay to extract.
+#' Default is \code{"counts"}. An assay that does not exist is an error. With
+#' \code{"counts"} and \code{log_transform = FALSE} the function warns that raw
+#' counts are being averaged.
 #' @param test_col Character or integer. Column index/name in
 #' \code{colData(se)} identifying which samples are the \strong{test}
 #' condition. Alternatively, a character vector of sample names.
@@ -79,14 +81,26 @@ leviFromSE <- function(se,
 
     # Extract assay --
     avail <- SummarizedExperiment::assayNames(se)
-    if (!is.null(assay_name) && assay_name %in% avail) {
+    if (is.null(assay_name)) {
+        mat <- SummarizedExperiment::assay(se, 1)
+    } else if (assay_name %in% avail) {
         mat <- SummarizedExperiment::assay(se, assay_name)
     } else {
-        if (!is.null(assay_name) && !(assay_name %in% avail)) {
-            message("Assay '", assay_name, "' not found. Using assay index 1.")
-        }
-        mat <- SummarizedExperiment::assay(se, 1)
+        stop("Assay '", assay_name, "' not found. Available assays: ",
+             if (length(avail)) paste(avail, collapse = ", ") else "(none named)",
+             ".")
     }
+
+    if (anyDuplicated(rownames(mat)))
+        stop("Duplicated row names in the assay (",
+             sum(duplicated(rownames(mat))), " repeated). ",
+             "Aggregate or remove duplicated genes before calling leviFromSE().")
+
+    if (!log_transform && identical(assay_name, "counts"))
+        warning("Averaging raw counts: Test/Control is distorted by sequencing ",
+                "depth. Use a log-normalised assay (e.g. 'logcounts'), set ",
+                "log_transform = TRUE, or run leviPseudobulk() plus a DE ",
+                "adapter instead.", call. = FALSE)
 
     if (log_transform) mat <- log2(mat + 1)
 
@@ -131,8 +145,8 @@ leviFromSE <- function(se,
     }
 
     # Compute per-gene means --
-    test_mean <- rowMeans(mat[, test_idx, drop = FALSE], na.rm = TRUE)
-    ctrl_mean <- rowMeans(mat[, ctrl_idx, drop = FALSE], na.rm = TRUE)
+    test_mean <- .rowMeansAny(mat[, test_idx, drop = FALSE])
+    ctrl_mean <- .rowMeansAny(mat[, ctrl_idx, drop = FALSE])
 
     out <- data.frame(
         Gene    = rownames(mat),
@@ -144,4 +158,18 @@ leviFromSE <- function(se,
     out <- stats::na.omit(out)
     rownames(out) <- NULL
     out
+}
+
+# Row means of a base, sparse (Matrix) or DelayedArray assay. base::rowMeans
+# rejects anything but arrays, and single-cell experiments usually store a
+# dgCMatrix or a DelayedMatrix.
+.rowMeansAny <- function(m) {
+    out <- if (is.matrix(m) || is.data.frame(m)) {
+        rowMeans(m, na.rm = TRUE)
+    } else if (methods::is(m, "Matrix")) {
+        Matrix::rowMeans(m, na.rm = TRUE)
+    } else {
+        MatrixGenerics::rowMeans(m, na.rm = TRUE)
+    }
+    as.numeric(out)
 }

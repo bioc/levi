@@ -101,8 +101,11 @@ leviFromEdgeR <- function(fit, coef = 1, gene_col = "GeneID") {
 #' with \code{levi}'s \code{expressionInput} parameter.
 #' @param fit A \code{MArrayLM} object after \code{limma::eBayes()}, or any
 #' \code{data.frame} with columns \code{logFC} and \code{AveExpr}.
-#' @param coef Integer or character. Coefficient to extract (used only when
-#' \code{fit} is a limma object). Default is \code{1}.
+#' @param coef Integer or character. Coefficient (or contrast) to extract,
+#' used only when \code{fit} is a limma object. Required when the fit has more
+#' than one coefficient. An intercept is refused: in a design such as
+#' \code{~ group} the first coefficient is the baseline mean, not a log
+#' fold-change.
 #' @param gene_col Character. Name for the gene identifier column.
 #' Default is \code{"GeneID"}.
 #' @return A \code{data.frame} with columns: gene identifier, AveExpr
@@ -119,10 +122,11 @@ leviFromEdgeR <- function(fit, coef = 1, gene_col = "GeneID") {
 #' \dontrun{
 #' library(limma)
 #' fit2 <- eBayes(fit)
-#' expr_df <- leviFromLimma(fit2, coef = 1, gene_col = "GeneSymbol")
+#' # design <- model.matrix(~ group); fit <- lmFit(y, design)
+#' expr_df <- leviFromLimma(fit2, coef = "groupT", gene_col = "GeneSymbol")
 #' }
 #' @export
-leviFromLimma <- function(fit, coef = 1, gene_col = "GeneID") {
+leviFromLimma <- function(fit, coef = NULL, gene_col = "GeneID") {
     if (is.data.frame(fit) && all(c("logFC", "AveExpr") %in% colnames(fit))) {
         tt <- fit
     } else {
@@ -130,7 +134,25 @@ leviFromLimma <- function(fit, coef = 1, gene_col = "GeneID") {
             stop("limma is required. ",
              "Install with: BiocManager::install('limma')")
         }
-        tt <- limma::topTable(fit, coef = coef, n = Inf)
+        coefs <- colnames(fit$coefficients) %||%
+            as.character(seq_len(NCOL(fit$coefficients)))
+        if (is.null(coef)) {
+            if (length(coefs) != 1L)
+                stop("The fit has ", length(coefs), " coefficients (",
+                     paste(coefs, collapse = ", "), "); choose one with ",
+                     "'coef'.", call. = FALSE)
+            coef <- 1L
+        }
+        if (length(coef) != 1L)
+            stop("'coef' must name a single coefficient.", call. = FALSE)
+        chosen <- if (is.numeric(coef)) coefs[coef] else coef
+        if (is.na(chosen) || !chosen %in% coefs)
+            stop("Coefficient '", coef, "' is not in the fit.", call. = FALSE)
+        if (chosen %in% c("(Intercept)", "Intercept"))
+            stop("Coefficient '", chosen, "' is the intercept (a baseline ",
+                 "mean), not a log fold-change; choose a group or contrast ",
+                 "coefficient.", call. = FALSE)
+        tt <- limma::topTable(fit, coef = chosen, n = Inf, sort.by = "none")
     }
     tt[[gene_col]] <- rownames(tt)
     out <- tt[, c(gene_col, "AveExpr", "logFC")]
@@ -195,9 +217,10 @@ leviFromSeurat <- function(markers, gene_col = "GeneID") {
     colnames(out) <- c(gene_col, "Control", "Test")
     out <- na.omit(out)
     rownames(out) <- NULL
-    message("leviFromSeurat(): FindMarkers() statistics are computed over ",
+    warning("leviFromSeurat(): FindMarkers() statistics are computed over ",
             "cells; the result is suitable for visualisation and node-label ",
             "tests, and donor-level inference must go through ",
-            "leviPseudobulk() and the single-cell inference functions.")
+            "leviPseudobulk() and the single-cell inference functions.",
+            call. = FALSE)
     return(out)
 }

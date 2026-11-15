@@ -69,7 +69,7 @@ print.levi_result <- function(x, n = 3L, ...) {
 
     regions <- x$regions
     if (is.null(regions) || is.null(regions$summary)) {
-        cat("  regions: unavailable (re-run with levi >= 2.0.0)\n")
+        cat("  regions: unavailable (re-run levi() with the current version)\n")
     } else {
         summary <- regions$summary
         cat(sprintf("  regions: %d over, %d under (threshold %.3f; min %d cells)\n",
@@ -77,6 +77,8 @@ print.levi_result <- function(x, n = 3L, ...) {
             regions$threshold, regions$min_cells))
     }
 
+    level <- x$metadata$sig_level %||% 0.05
+    adjustment <- x$metadata$p_adjust_method %||% "unknown"
     if (!is.null(regions$inference)) {
         cat("  regional permutation test: ", sum(regions$summary$Significant),
             " region(s) pass the joint maximum-mass threshold; ",
@@ -85,8 +87,6 @@ print.levi_result <- function(x, n = 3L, ...) {
         cat("  permutation test: not run (n_perm = 0)\n")
     } else {
         inMask <- sum(!is.na(x$pvalues$over))
-        level <- x$metadata$sig_level %||% 0.05
-        adjustment <- x$metadata$p_adjust_method %||% "unknown"
         cat(sprintf(
             "  permutation test: %d of %d masked cells significant over, %d under\n",
             sum(x$pvalues$over <= level, na.rm = TRUE), inMask,
@@ -96,5 +96,18 @@ print.levi_result <- function(x, n = 3L, ...) {
     if (!is.null(x$pvalues))
         cat("  threshold: ", level, "; adjustment: ", adjustment, "\n", sep = "")
     cat("  fields: ", paste(names(x), collapse = ", "), "\n", sep = "")
+    invisible(x)
+}
+
+# Functions that take one levi() result. levi() returns a plain list with one
+# levi_result per comparison when readExpColumn names several, and passing
+# that list used to produce misleading "re-run levi()" errors.
+.checkLeviResult <- function(x, arg = "result") {
+    if (inherits(x, "levi_result")) return(invisible(x))
+    if (is.list(x) && length(x) &&
+        all(vapply(x, inherits, logical(1), "levi_result")))
+        stop("'", arg, "' holds ", length(x), " levi() results, one per ",
+             "comparison; pass one of them, for example ", arg, "[[1]].",
+             call. = FALSE)
     invisible(x)
 }

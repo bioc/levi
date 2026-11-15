@@ -7,11 +7,16 @@
 #   edges  two columns naming the endpoints of each interaction
 
 .parseNetwork <- function(networkNodes, networkEdges, fileType) {
-    parser <- switch(fileType,
+    if (!is.character(fileType) || length(fileType) != 1L)
+        stop("'fileTypeInput' must be one of \"dat\", \"stg\", \"net\" ",
+             "or \"dyn\".", call. = FALSE)
+    parser <- switch(tolower(fileType),
         dat = .parseDat,
         stg = .parseStg,
         net = .parseNet,
-        dyn = .parseDyn)
+        dyn = .parseDyn,
+        stop("Unknown fileTypeInput '", fileType, "'; use \"dat\", ",
+             "\"stg\", \"net\" or \"dyn\".", call. = FALSE))
     parser(networkNodes, networkEdges)
 }
 

@@ -1,3 +1,87 @@
+Changes in version 1.99.5
+
+Statistical corrections
+    o leviSingleCellInteractionTFCE() now tests per-donor interaction
+      contrasts, (stim - ctrl) in a cell type minus (stim - ctrl) in the
+      reference type, with a limma-trend one-sample moderated t and a
+      within-donor sign-flip null. The previous refit of
+      ~ donor + type * condition on swapped labels was valid only under the
+      global null: with a shared condition effect and no interaction it
+      rejected in 85% of null data sets (now 3%, attainable level 3.1%).
+      Cell types are aligned on their shared genes before the contrasts are
+      formed; stacking matrices filtered per type had mixed genes across
+      rows or aborted.
+    o leviBulkGraphInference() refits the whole DESeq2 pipeline in every
+      permutation by default (refit_dispersions = TRUE). Keeping the
+      label-dependent size factors and dispersions fixed gave a
+      family-wise error rate about three times the attainable level; that
+      mode now warns that it has no level guarantee. Cook-outlier
+      replacement is switched off so that observed and permuted fits use the
+      same pipeline.
+    o leviGraphMoran() computes local P-values by conditional permutation
+      (each node keeps its own score; its neighbours are drawn from the
+      other scores), as in spdep and GeoDa, and centres the two-sided
+      P-values on the null expectations. Total permutation called an
+      isolated outlier with iid neighbours significant in about half of null
+      data sets.
+    o Documentation of the node-label and rewiring tests (levi(),
+      leviGraphGetisOrd(), leviGraphSpectrum(), leviGraphWeightedTopology(),
+      leviGraphRewiringInference(), leviGraphTFCERewiring()) states that
+      their nulls treat scores as exchangeable over nodes and reject under
+      co-expression or degree association without any condition effect.
+
+Performance (results unchanged)
+    o The graph TFCE statistic runs in C++ with union-find components
+      (src/tfce.cpp), 25 to 40 times faster on a 1,000-node graph and equal
+      to the plain-R version (kept as .tfceR() for the tests) to a relative
+      4e-16.
+    o The permutation loops of levi(), leviReplicateInference() and
+      leviSingleCellRegionalInference() compute the combined-signal landscape
+      with the smoothed occupancy cached (landscape_occupancy() and
+      landscape_m1()): one blur per draw instead of four, bit-identical to
+      landscape_gauss(). levi() with n_perm = 200 on the 30-node medusa
+      network at resolution 100 went from 46 s to 8 s with identical
+      p-values and the same random-number stream.
+    o tests/testthat/test_characterization.R compares the landscape and
+      regional results of levi() on the hub and medusa networks with stored
+      values (tolerance 1e-8).
+
+Bug fixes
+    o leviFromLimma() no longer defaults to the first coefficient, which in
+      a ~ group design is the intercept. 'coef' is required when the fit has
+      several coefficients, and an intercept is refused.
+    o leviFromSE() accepts sparse (dgCMatrix) and DelayedArray assays
+      (MatrixGenerics is now imported). An 'assay_name' that does not exist
+      and duplicated gene names are errors instead of a silent fallback to
+      the first assay. Averaging the raw "counts" assay warns that the
+      Test/Control ratio then depends on sequencing depth.
+    o leviFromSeurat() now warns, rather than prints a message, that
+      FindMarkers() statistics are cell-level.
+    o The graph and pseudobulk inference functions (leviGraphTFCEInference(),
+      leviGraphTFCEFreedmanLane(), leviBulkGraphInference() and the
+      leviSingleCell*() functions) stop with a clear message when the
+      expression has no gene in common with the network, has duplicated gene
+      names, or 'test'/'control' are not levels of 'groups'. They used to
+      return zeros with one warning per permutation or fail inside limma.
+    o The package license is GPL (>= 2), as stated in DESCRIPTION; the
+      stray LICENSE.txt (Apache-2.0) was removed. limma and edgeR, which
+      the adapters call, are now in Imports.
+    o The ALL examples in the vignettes collapse the B/T subtypes, map probe
+      sets to gene symbols and select a coefficient by name.
+    o Graph tests stop with an informative error for unnamed scores, fewer
+      than three matched nodes, an invalid n_perm or an unknown
+      fileTypeInput (case is now ignored). In the graph tests (TFCE, Moran,
+      Getis-Ord, rewiring) reciprocal edges (A-B and B-A) are counted once;
+      the landscape computed by levi() still counts them separately.
+    o leviEnrich(), leviRegionGenes() and leviDiff() explain how to pick one
+      result when given the list that levi() returns for several
+      comparisons. print() of a result no longer fails when both regional
+      and cell-wise P-values are present.
+    o Permutation P-values are counted by binary search on the sorted null
+      (same values; memory O(n) instead of O(n x nodes)).
+    o Vignette HTML files and tests/testthat/Rplots.pdf are excluded from
+      the build.
+
 Changes in version 1.99.4
 
 Bug fixes
