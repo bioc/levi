@@ -1,4 +1,4 @@
-Changes in version 1.99.5
+Changes in version 2.0.0
 
 Statistical corrections
     o leviSingleCellInteractionTFCE() now tests per-donor interaction
