@@ -49,6 +49,14 @@ Behaviour changes (these alter landscapes and regional P-values)
       networks laid out by leviFromEdges() change; shipped files are
       unaffected.
 
+    o The peak of a region (PeakRow, PeakCol) is the first cell within 1e-9
+      of the extreme score. It was the first cell with the exact extreme,
+      which on a plateau depended on the last bit of the surface and
+      differed between x86_64 and arm64. The peak score, mass and P-values
+      are unchanged; the peak cell of a region on a plateau can move.
+    o The thresholds of the C++ TFCE are computed without fused
+      multiply-add, so that it agrees with the R reference on arm64.
+
     o permutation_method = "auto" no longer exceeds n_perm. It enumerates
       every label assignment only when that takes at most n_perm
       permutations (and at most max_exact); otherwise it draws n_perm Monte

@@ -43,7 +43,14 @@ NumericVector tfce_side(NumericVector v, IntegerMatrix edges, double E,
     // seq.default(dh, top, length.out = n_steps) is c(dh, dh + (1:(n - 2)) * by,
     // top): the last value is `top` itself, not dh + (n - 1) * by.
     const double by = (n_steps == 1) ? 0.0 : (top - dh) / (n_steps - 1);
-    for (int k = 0; k < n_steps; ++k) hs[k] = dh + k * by;
+    // The product goes through a volatile so that the compiler cannot fuse
+    // it with the addition (FMA, the default on arm64): R rounds the two
+    // operations separately, and a node whose value equals a threshold
+    // must land on the same side of `v >= h` on every platform.
+    for (int k = 0; k < n_steps; ++k) {
+        volatile double step = k * by;
+        hs[k] = dh + step;
+    }
     if (n_steps >= 2) hs[n_steps - 1] = top;
 
     // Adjacency in compressed form.

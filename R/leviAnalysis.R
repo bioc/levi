@@ -476,7 +476,11 @@ leviDiff <- function(result_a, result_b,
             weight <- if (sum(excess) > 0) excess else rep(1, length(excess))
             x <- zoomValue + (rows - 1L) * increase
             y <- zoomValue + (cols - 1L) * increase
-            peak <- if (direction == "over") which.max(scores) else which.min(scores)
+            # Cells within rounding error of the extreme count as tied and the
+            # first one wins, so the peak does not depend on the last bit of
+            # the surface (FMA on arm64 changes it).
+            extreme <- if (direction == "over") max(scores) else min(scores)
+            peak <- which(abs(scores - extreme) <= 1e-9)[1L]
 
             summaries[[length(summaries) + 1L]] <- data.frame(
                 Region = region, Direction = direction, Cells = length(rows),
